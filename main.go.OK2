@@ -1,0 +1,74 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+
+	_ "image/jpeg"
+	_ "image/png"
+
+	"github.com/liyue201/goqr"
+	"gocv.io/x/gocv"
+)
+
+func main() {
+	var deviceID int
+	var fromFile string
+
+	flag.IntVar(&deviceID, "device-id", 0, "integer value, webcam device ID")
+	flag.StringVar(&fromFile, "from-file", "", "string value, url: rtsp://user:pass@host:port/stream1")
+	flag.Parse()
+
+	var webcam *gocv.VideoCapture
+	var err error
+
+	if fromFile == "" {
+		webcam, err = gocv.VideoCaptureDevice(deviceID)
+	} else {
+		webcam, err = gocv.VideoCaptureFile(fromFile)
+	}
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer webcam.Close()
+
+	window := gocv.NewWindow("Detector QR")
+	defer window.Close()
+
+	frame := gocv.NewMat()
+	defer frame.Close()
+
+	if fromFile != "" {
+		fmt.Printf("start reading camera from file: %v\n", fromFile)
+	} else {
+		fmt.Printf("start reading camera device: %v\n", deviceID)
+	}
+	for {
+		if ok := webcam.Read(&frame); !ok {
+			fmt.Printf("cannot read device %d\n", deviceID)
+			return
+		}
+		if frame.Empty() {
+			continue
+		}
+		//webcam.Read(&frame)
+
+		img, err := frame.ToImage()
+
+		if err != nil {
+			fmt.Printf("image.Decode error: %v\n", err)
+			return
+		}
+
+		qrCodes, err := goqr.Recognize(img)
+		if err == nil {
+			for _, qrCode := range qrCodes {
+				fmt.Printf("qrCode Text: %s, EccLevel: %d, DataType: %d, Eci: %d, Mask: %d, Version: %d \n", qrCode.Payload, qrCode.EccLevel, qrCode.DataType, qrCode.Eci, qrCode.Mask, qrCode.Version)
+			}
+		}
+
+		window.IMShow(frame)
+		window.WaitKey(1)
+	}
+}

@@ -52,7 +52,7 @@ func main() {
 		if frame.Empty() {
 			continue
 		}
-		//webcam.Read(&frame)
+		webcam.Read(&frame)
 
 		img, err := frame.ToImage()
 

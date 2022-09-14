@@ -3,32 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 
 	"gocv.io/x/gocv"
 )
 
-func main() {
-	var deviceID int
-	var fromFile string
+func lectorQR(camara *gocv.VideoCapture) {
+	var decoded string
 	var dataOld string
-
-	flag.IntVar(&deviceID, "device-id", 0, "integer value, webcam device ID")
-	flag.StringVar(&fromFile, "from-file", "", "string value, url: rtsp://user:pass@host:port/stream1, rtsp://dahua:admin@192.168.88.108:554/cam/realmonitor?channel=1&subtype=1")
-	flag.Parse()
-
-	var webcam *gocv.VideoCapture
-	var err error
-
-	if fromFile == "" {
-		webcam, err = gocv.VideoCaptureDevice(deviceID)
-	} else {
-		webcam, err = gocv.VideoCaptureFile(fromFile)
-	}
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer webcam.Close()
 
 	frame := gocv.NewMat()
 	defer frame.Close()
@@ -42,36 +24,26 @@ func main() {
 	window := gocv.NewWindow("Detector QR")
 	defer window.Close()
 
-	//	window2 := gocv.NewWindow("QR Detectado")
-	//	defer window2.Close()
-
 	qrCodeDetector := gocv.NewQRCodeDetector()
 	defer qrCodeDetector.Close()
 
-	//green := color.RGBA{0, 255, 0, 0} // green
+	log.Println("Iniciando lectura de la cámara...")
 
-	var decoded string
-
-	if fromFile != "" {
-		fmt.Printf("start reading camera from file: %v\n", fromFile)
-	} else {
-		fmt.Printf("start reading camera device: %v\n", deviceID)
-	}
 	for {
-		if ok := webcam.Read(&frame); !ok {
-			fmt.Printf("No se pudo leer el dispositivo %d\n", 0)
+		if ok := camara.Read(&frame); !ok {
+			log.Printf("No se pudo leer frame de cámara")
 			return
 		}
 		if frame.Empty() {
 			continue
 		}
-		webcam.Read(&frame)
+		camara.Read(&frame)
 
 		decoded = qrCodeDetector.DetectAndDecode(frame, &pts, &straight_qrcode)
 		if decoded != "" {
 			if decoded != dataOld {
 				dataOld = decoded
-				fmt.Println(decoded)
+				log.Println(decoded)
 			}
 		}
 
@@ -79,4 +51,38 @@ func main() {
 		window.WaitKey(1)
 	}
 
+}
+
+func main() {
+	var deviceID int
+	var fromFile string
+
+	flag.IntVar(&deviceID, "device-id", 0, "integer value, webcam device ID")
+	flag.StringVar(&fromFile, "from-file", "", "string value, url: rtsp://user:pass@host:port/stream1, rtsp://dahua:admin@192.168.88.108:554/cam/realmonitor?channel=1&subtype=1")
+	flag.Parse()
+
+	jobs := make(chan int, 4)
+	done := make(chan bool)
+
+	var camara *gocv.VideoCapture
+	var err error
+
+	if fromFile == "" {
+		camara, err = gocv.VideoCaptureDevice(deviceID)
+	} else {
+		camara, err = gocv.VideoCaptureFile(fromFile)
+	}
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer camara.Close()
+
+	go lectorQR(camara)
+
+	close(jobs)
+	fmt.Println("Todos los trabajos enviados")
+
+	<-done
+	log.Println("Fin")
 }

@@ -2,7 +2,7 @@
 override TARGET=qr-reader
 VERSION=1.0
 OS=linux
-ARCH=amd64
+ARCH=windows
 FLAGS="-s -w"
 CGO=0
 NETWORK=sigep-network
@@ -18,7 +18,10 @@ bin:
 
 install: 
 	@echo Instalando binario ...
-	CGO_ENABLED=$(CGO) GOOS=$(OS) GOARCH=$(ARCH) go install -ldflags=$(FLAGS) 
+	SET CGO_ENABLED=$(CGO) 
+	SET GOOS=$(OS) 
+	SET GOARCH=$(ARCH) 
+	go install -ldflags=$(FLAGS) 
 
 build:
 	@echo Construyendo imagen docker $(TARGET):$(VERSION) ...

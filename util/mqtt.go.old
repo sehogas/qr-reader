@@ -1,0 +1,77 @@
+package util
+
+import (
+	"log"
+	"os"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+type ClienteMQTT struct {
+	Cliente mqtt.Client
+}
+
+var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+	log.Printf("Message %s received on topic %s\n", msg.Payload(), msg.Topic())
+}
+
+var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+	log.Println("Connected")
+}
+
+var connectionLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+	log.Printf("Connection Lost: %s\n", err.Error())
+}
+
+func NewClienteMQTT(broker, user, pass string, autoReconnect bool, maxReconnectInterval time.Duration, clientID string) *ClienteMQTT {
+	mqtt.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
+	mqtt.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
+	//mqtt.WARN = log.New(os.Stdout, "[WARN]  ", 0)
+	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(broker)
+	opts.SetUsername(user)
+	opts.SetPassword(pass)
+	opts.SetClientID(clientID)
+	opts.OnConnect = connectHandler
+	opts.OnConnectionLost = connectionLostHandler
+
+	/*
+		opts.AutoReconnect = autoReconnect
+		if autoReconnect {
+			opts.MaxReconnectInterval = maxReconnectInterval
+		}*/
+	log.Println("AutoReconnect: ", opts.AutoReconnect)
+	log.Println("MaxReconnectInterval: ", opts.MaxReconnectInterval)
+
+	return &ClienteMQTT{
+		Cliente: mqtt.NewClient(opts),
+	}
+}
+
+func (c *ClienteMQTT) Connect() mqtt.Token {
+	var token mqtt.Token
+	if token = c.Cliente.Connect(); token.Wait() && token.Error() != nil {
+		log.Fatal("No se pudo conectar con el servidor MQTT")
+	}
+	return token
+}
+
+func (c *ClienteMQTT) Disconnect() {
+	c.Cliente.Disconnect(250)
+}
+
+func (c *ClienteMQTT) Subscribe(topic string, qos byte, callBackFunc func(client mqtt.Client, msg mqtt.Message)) mqtt.Token {
+	return c.Cliente.Subscribe(topic, qos, callBackFunc)
+
+}
+
+func (c *ClienteMQTT) Unsubscribe(topic string) mqtt.Token {
+	return c.Cliente.Unsubscribe(topic)
+}
+
+func (c *ClienteMQTT) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token {
+	return c.Cliente.Publish(topic, qos, retained, payload)
+}

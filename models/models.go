@@ -10,9 +10,14 @@ type Card struct {
 }
 
 type Access struct {
-	Code         string
-	AccessDate   time.Time
-	Zone         string
-	Event        string
-	Synchronized bool
+	Code1      string    `db:"Code1" json:"code1"`
+	Code2      string    `db:"Code2" json:"code2"`
+	AccessDate time.Time `db:"AccessDate" json:"accessDate"`
+	Zone       string    `db:"Zone" json:"zone"`
+	Event      string    `db:"Event" json:"event"`
+}
+
+type AccessZone struct {
+	ClientID string   `db:"ClientID" json:"clientId"`
+	Access   []Access `json:"access"`
 }

@@ -8,7 +8,4 @@ require github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 
 require github.com/xeodou/go-sqlcipher v0.0.0-20200727080346-d681773ef093
 
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/mattn/go-sqlite3 v1.14.15
-)
+require github.com/davecgh/go-spew v1.1.1 // indirect

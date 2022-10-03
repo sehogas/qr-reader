@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
 	"github.com/sehogas/qr-reader/util"
 )
@@ -13,14 +11,21 @@ import (
 var clientID string
 var zoneID string
 var eventID string
+var deviceID int
 var mode int
+var db string
+var rtsp string
 
 func main() {
 
 	flag.StringVar(&clientID, "client-id", "", "String value. Instance")
-	flag.StringVar(&zoneID, "zone", "", "String value. Zone")
-	flag.StringVar(&eventID, "event", "", "String value. Event. (I=In,O=Out)")
-	flag.IntVar(&mode, "mode", 1, "Int value. Read mode. Default=1. (1=Only persons,2:Persons+Vehicles)")
+	flag.StringVar(&zoneID, "zone-id", "", "String value. Zone")
+	flag.StringVar(&eventID, "event-id", "", "String value. Event. (I=In,O=Out)")
+	flag.IntVar(&mode, "mode", 1, "Optional integer value. Read mode. Default=1. (1=Only persons,2:Persons+Vehicles)")
+	flag.IntVar(&deviceID, "device-id", 0, "Optional integer value. Device identifier. Default=0. (0=Webcam default)")
+	flag.StringVar(&db, "db-name", "data.db", "Optional string value. Database name")
+	flag.StringVar(&rtsp, "rtsp", "", "Optional string value. Url video stream (rtsp)")
+
 	flag.Parse()
 
 	if clientID == "" {
@@ -50,31 +55,20 @@ func main() {
 		log.Fatal("Invalid mode")
 	}
 
-	deviceID, err := strconv.Atoi(os.Getenv("QRREADER_DEVICEID"))
-	if err != nil {
-		deviceID = 0 //webcam default
-	}
-	fromFile := os.Getenv("QRREADER_RTSP")
-	dbPath := os.Getenv("QRREADER_DB")
-	if dbPath == "" {
-		dbPath = "./data.db"
-	}
-
-	if fromFile == "" {
+	if rtsp == "" {
 		fmt.Printf("DeviceID: %d \n", deviceID)
 	} else {
-		fmt.Printf("RTSP: %s \n", fromFile)
+		fmt.Printf("RTSP: %s \n", rtsp)
 	}
-	//fmt.Printf("DB: %s \n", dbPath)
 	fmt.Printf("Mode: %d \n", mode)
 	fmt.Printf("ZoneID: %s \n", zoneID)
 	fmt.Printf("EventID: %s \n", eventID)
 
-	repo := util.NewRepository("sqlite3", dbPath)
+	repo := util.NewRepository("sqlite3", db)
 	defer repo.Close()
 
 	repo.InsertOrReplaceCards(util.TestCards())
 
-	lectorQR := util.NewLectorQR(deviceID, fromFile, repo, mode, clientID, zoneID, eventID)
+	lectorQR := util.NewLectorQR(deviceID, rtsp, repo, mode, clientID, zoneID, eventID)
 	lectorQR.Start()
 }

@@ -1,27 +1,43 @@
 ########################################################
 override TARGET=qr-reader
 VERSION=1.0
-OS=linux
-ARCH=windows
+OS=windows
+ARCH=amd64
 FLAGS="-s -w"
-CGO=0
+CGO=1
+CGO_LDFLAGS=-static -s -L"C:\Program Files\OpenSSL-Win64\lib\VC\static"
+GOEXE=".exe"
 NETWORK=sigep-network
 ########################################################
 
 run:
 	@echo Ejecutando programa...
-	go run main.go
+	go run main.go --client-id "Prueba" --zone-id "AQ" --event-id "I" --db-name "data.db" --device-id 0
 
 bin:
-	@echo Generando binario ...
-	CGO_ENABLED=$(CGO) GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(FLAGS) -o $(TARGET) .
+	@echo Generando binario ... (en windows con poweshell)
+	SET CC=x86_64-w64-mingw32-gcc
+	SET CXX=x86_64-w64-mingw32-g++
+	SET AR=x86_64-w64-mingw32-ar
+	SET CGO_ENABLED=$(CGO) 
+	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
+	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
+	SET GOEXE=$(GOEXE)
+	SET GOOS=$(OS) 
+	SET GOARCH=$(ARCH) 
+	go build -v -x -tags sqlite_userauth -ldflags=$(FLAGS)  .
+
+exec:
+	./qr-reader --client-id "Prueba" --zone-id "AQ" --event-id "I" --db-name "data.db" --device-id 0
 
 install: 
-	@echo Instalando binario ...
+	@echo Instalando binario ... (en windows con poweshell)
+	@echo CGO_ENABLED=$(CGO) GOOS=$(OS) GOARCH=$(ARCH)  go install -ldflags=$(FLAGS) 
 	SET CGO_ENABLED=$(CGO) 
 	SET GOOS=$(OS) 
 	SET GOARCH=$(ARCH) 
-	go install -ldflags=$(FLAGS) 
+	go install -tags sqlite_userauth -ldflags=$(FLAGS)
+	@go install -ldflags=$(FLAGS)
 
 build:
 	@echo Construyendo imagen docker $(TARGET):$(VERSION) ...
@@ -52,6 +68,11 @@ createnetwork:
 clean:
 	@echo Borrando binario ...
 	rm -rf $(TARGET)
+
+cleanW:
+	@echo Borrando binario ...
+	del $(TARGET).exe
+	del data.db
 
 .PHONY: clean run install build start stop createnetwork start_with_network
 .DEFAULT: 

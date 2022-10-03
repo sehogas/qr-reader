@@ -2,10 +2,16 @@ package util
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+
+	//	"net/url"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	//_ "github.com/mattn/go-sqlite3"
+
+	_ "github.com/xeodou/go-sqlcipher"
+
 	"github.com/sehogas/qr-reader/models"
 )
 
@@ -14,13 +20,40 @@ type Repository struct {
 }
 
 func NewRepository(driverName string, filepath string) *Repository {
-	db, err := sql.Open(driverName, filepath)
+
+	//	password := "lalala"
+
+	//dbnameWithDSN := filepath + fmt.Sprintf("?_pragma_key=%s&_pragma_cipher_page_size=4096", url.QueryEscape(password))
+	//db, err := sql.Open("sqlite3", dbnameWithDSN)
+
+	//db, err := sql.Open(driverName, filepath)
+
+	/*
+		sql.Register("sqlite3_log", &sqlite3.SQLiteDriver{
+			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+				log.Printf("Auth enabled: %v\n", conn.AuthEnabled())
+				return nil
+			},
+		})
+
+		// This is usual DB stuff (except with our sqlite3_log driver)
+		db, err := sql.Open("sqlite3_log", fmt.Sprintf("file:%s?_auth&_auth_user=admin&_auth_pass=lalala&_auth_crypt=SSHA512&_auth_salt=233446", filepath))
+	*/
+
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s?_key=123456", filepath))
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	if db == nil {
 		log.Fatalln("db nil")
 	}
+
+	p := "PRAGMA key = '123456';"
+	_, err = db.Exec(p)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	err = createStruct(db)
 	if err != nil {
 		log.Fatalln(err)
@@ -115,6 +148,8 @@ func TestCards() []models.Card {
 		{Code: "001-42070AED-6E95-4586-91D0-F90BB10D1B7F", Since: time.Now(), Until: time.Now().Add(30 * time.Hour).UTC(), Enabled: true},
 		{Code: "001-C343B902-AF36-4A5B-A3A8-C35A11C138E1", Since: time.Now(), Until: time.Now().Add(60 * time.Hour).UTC(), Enabled: false},
 		{Code: "001-3F73A575-387C-45F5-9F48-396C5456C268", Since: time.Now(), Until: time.Now().Add(60 * time.Hour).UTC(), Enabled: true},
+		{Code: "002-94E5801E-69BE-4268-9B18-F5C4CB7C5187", Since: time.Now(), Until: time.Now().Add(60 * time.Hour).UTC(), Enabled: true},
+		{Code: "002-94E5801E-69BE-4268-9B18-F5C4CB7C5181", Since: time.Now(), Until: time.Now().Add(60 * time.Hour).UTC(), Enabled: false},
 	}
 }
 

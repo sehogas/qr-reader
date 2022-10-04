@@ -15,8 +15,12 @@ var deviceID int
 var mode int
 var db string
 var rtsp string
+var pathWavGranted string
+var pathWavDenied string
 
 func main() {
+
+	log.Println("Iniciando...")
 
 	flag.StringVar(&clientID, "client-id", "", "String value. Instance")
 	flag.StringVar(&zoneID, "zone-id", "", "String value. Zone")
@@ -25,6 +29,8 @@ func main() {
 	flag.IntVar(&deviceID, "device-id", 0, "Optional integer value. Device identifier. Default=0. (0=Webcam default)")
 	flag.StringVar(&db, "db-name", "data.db", "Optional string value. Database name")
 	flag.StringVar(&rtsp, "rtsp", "", "Optional string value. Url video stream (rtsp)")
+	flag.StringVar(&pathWavGranted, "path-wav-granted", "./assets/access-granted.wav", "Optional string value. File path .wav for access granted")
+	flag.StringVar(&pathWavDenied, "path-wav-denied", "./assets/access-denied.wav", "Optional string value. File path .wav for access denied")
 
 	flag.Parse()
 
@@ -64,11 +70,19 @@ func main() {
 	fmt.Printf("ZoneID: %s \n", zoneID)
 	fmt.Printf("EventID: %s \n", eventID)
 
-	repo := util.NewRepository("sqlite3", db)
-	defer repo.Close()
+	//Init audios
 
-	repo.InsertOrReplaceCards(util.TestCards())
+	_ = util.NewSound(pathWavDenied)
+	//defer wavDenied.Close()
 
-	lectorQR := util.NewLectorQR(deviceID, rtsp, repo, mode, clientID, zoneID, eventID)
-	lectorQR.Start()
+	//_ = util.NewSound(pathWavGranted)
+	//defer wavGranted.Close()
+
+	// defer repo.Close()
+
+	// repo.InsertOrReplaceCards(util.TestCards())
+
+	// lectorQR := util.NewLectorQR(deviceID, rtsp, repo, mode, clientID, zoneID, eventID, pathWavGranted, pathWavDenied)
+	// lectorQR.Start()
+	fmt.Scanln()
 }

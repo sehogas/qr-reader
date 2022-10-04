@@ -4,8 +4,12 @@ Este proyecto lee QR desde cualquier cámara web, o cámara IP por RTSP.
 
 ### Requerimientos previos
 
-* gocv
-* zbar
+* Instalar https://chocolatey.org/install
+* Instalar make con: choco install make ()
+* Instalar cmake version 3.24.2
+* Instalar mingw-w64: Buscar (https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/seh/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z)
+* Instalar gocv, descargar fuentes y compilar.  
+* zbar (depende)
 
 ### Instrucciones de instalación GOCV:
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	_ "image/jpeg"
 	_ "image/png"
@@ -21,28 +22,33 @@ const (
 )
 
 type LectorQR struct {
-	DeviceID int
-	FromFile string
-	Repo     *Repository
-	Mode     int
-	ClientID string
-	Zone     string
-	Event    string
+	DeviceID       int
+	FromFile       string
+	Repo           *Repository
+	Mode           int
+	ClientID       string
+	Zone           string
+	Event          string
+	PathWavGranted string
+	PathWavDenied  string
 }
 
-func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID string, zone string, event string) *LectorQR {
+func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID, zone, event, pathWavGranted, pathWavDenied string) *LectorQR {
 	return &LectorQR{
-		DeviceID: deviceID,
-		FromFile: fromFile,
-		Repo:     repo,
-		Mode:     mode,
-		ClientID: clientID,
-		Zone:     zone,
-		Event:    event,
+		DeviceID:       deviceID,
+		FromFile:       fromFile,
+		Repo:           repo,
+		Mode:           mode,
+		ClientID:       clientID,
+		Zone:           zone,
+		Event:          event,
+		PathWavGranted: pathWavGranted,
+		PathWavDenied:  pathWavDenied,
 	}
 }
 
 func (s *LectorQR) Start() {
+
 	var camera *gocv.VideoCapture
 	var err error
 	var keyPrev int
@@ -84,9 +90,9 @@ func (s *LectorQR) Start() {
 	//defer qrCodeDetector.Close()
 
 	var decoded string
-	//var prev1 string
-	//var prev2 string
-	//var accessGranted bool
+	var prev1 string
+	var prev2 string
+	var accessGranted bool
 	wait := 1
 
 	log.Println("Reading camera...")
@@ -113,18 +119,84 @@ func (s *LectorQR) Start() {
 				if len(qrCodes) == 1 {
 					decoded = string(qrCodes[0].Payload)
 					if decoded != "" {
-						log.Printf("Card 1 [%s]\n", decoded)
-						/*
-							if s.Mode == 1 { //Only person
-								if prev1 != decoded && IsPerson(decoded) {
-									prev1 = decoded
-									log.Printf("Card 1 [%s] is %s \n", prev1, PersonOrVehicle(prev1))
+						if s.Mode == 1 { //Only person
+							if prev1 != decoded && IsPerson(decoded) {
+								prev1 = decoded
+								log.Printf("Card 1 [%s] is %s \n", prev1, PersonOrVehicle(prev1))
 
-									if accessGranted, _ = s.Repo.ValidCard(prev1); accessGranted {
+								if accessGranted, _ = s.Repo.ValidCard(prev1); accessGranted {
+
+									access := models.Access{
+										Code1:      prev1,
+										Code2:      "",
+										AccessDate: time.Now(),
+										Zone:       s.Zone,
+										Event:      s.Event,
+									}
+									message := models.AccessZone{
+										ClientID: s.ClientID,
+										Access:   []models.Access{access},
+									}
+
+									if !s.SendToServer(&message) { //Envia al servidor
+										err := s.Repo.InsertAccess(&access) //Sino intento grabar en base de datos local
+										if err != nil {
+											log.Println("Local storage: ", err)
+											break
+										}
+										log.Println("Recorded to local storage: OK")
+									}
+									log.Println("Access granted!")
+									green.CopyTo(&frame)
+									// err = wavGranted.Play()
+									// if err != nil {
+									// 	log.Println(err)
+									// }
+								} else {
+									log.Println("Access denied!")
+									red.CopyTo(&frame)
+									// err = wavDenied.Play()
+									// if err != nil {
+									// 	log.Println(err)
+									// }
+								}
+								accessGranted = false
+								wait = 2000
+							}
+						}
+
+						if s.Mode == 2 { //Persons + Vehicles
+							if prev1 == "" && prev2 != decoded {
+								prev1 = decoded
+								prev2 = ""
+								log.Printf("Card 1 [%s] is %s\nWaiting for next card...\n", prev1, PersonOrVehicle(prev1))
+							} else {
+								if prev2 == "" && prev1 != decoded && PersonOrVehicle(decoded) != _OTHER && PersonOrVehicle(prev1) != PersonOrVehicle(decoded) {
+									prev2 = decoded
+									log.Printf("Card 2 [%s] is %s\n", prev2, PersonOrVehicle(prev2))
+								}
+							}
+
+							if prev1 != "" && prev2 != "" {
+								accessGranted, _ = s.Repo.ValidCard(prev1)
+								if accessGranted {
+									accessGranted, _ = s.Repo.ValidCard(prev2)
+									if accessGranted {
+										//log.Println("Access granted!")
+										//green.CopyTo(&frame)
+
+										var code1, code2 string
+										if IsPerson(prev1) {
+											code1 = prev1
+											code2 = prev2
+										} else {
+											code1 = prev2
+											code2 = prev1
+										}
 
 										access := models.Access{
-											Code1:      prev1,
-											Code2:      "",
+											Code1:      code1,
+											Code2:      code2,
 											AccessDate: time.Now(),
 											Zone:       s.Zone,
 											Event:      s.Event,
@@ -144,85 +216,23 @@ func (s *LectorQR) Start() {
 										}
 										log.Println("Access granted!")
 										green.CopyTo(&frame)
-
+										// wavGranted.Play()
 									} else {
 										log.Println("Access denied!")
 										red.CopyTo(&frame)
+										// wavDenied.Play()
 									}
-									accessGranted = false
-									wait = 2000
-								}
-							}
-
-							if s.Mode == 2 { //Persons + Vehicles
-								if prev1 == "" && prev2 != decoded {
-									prev1 = decoded
-									prev2 = ""
-									log.Printf("Card 1 [%s] is %s\nWaiting for next card...\n", prev1, PersonOrVehicle(prev1))
 								} else {
-									if prev2 == "" && prev1 != decoded && PersonOrVehicle(decoded) != _OTHER && PersonOrVehicle(prev1) != PersonOrVehicle(decoded) {
-										prev2 = decoded
-										log.Printf("Card 2 [%s] is %s\n", prev2, PersonOrVehicle(prev2))
-									}
+									log.Println("Access denied!")
+									red.CopyTo(&frame)
+									// wavDenied.Play()
 								}
-
-								if prev1 != "" && prev2 != "" {
-									accessGranted, _ = s.Repo.ValidCard(prev1)
-									if accessGranted {
-										accessGranted, _ = s.Repo.ValidCard(prev2)
-										if accessGranted {
-											log.Println("Access granted!")
-											green.CopyTo(&frame)
-
-											var code1, code2 string
-											if IsPerson(prev1) {
-												code1 = prev1
-												code2 = prev2
-											} else {
-												code1 = prev2
-												code2 = prev1
-											}
-
-											access := models.Access{
-												Code1:      code1,
-												Code2:      code2,
-												AccessDate: time.Now(),
-												Zone:       s.Zone,
-												Event:      s.Event,
-											}
-											message := models.AccessZone{
-												ClientID: s.ClientID,
-												Access:   []models.Access{access},
-											}
-
-											if !s.SendToServer(&message) { //Envia al servidor
-												err := s.Repo.InsertAccess(&access) //Sino intento grabar en base de datos local
-												if err != nil {
-													log.Println("Local storage: ", err)
-													break
-												}
-												log.Println("Recorded to local storage: OK")
-											}
-											log.Println("Access granted!")
-											green.CopyTo(&frame)
-
-										} else {
-											log.Println("Access denied!")
-											red.CopyTo(&frame)
-										}
-									} else {
-										log.Println("Access denied!")
-										red.CopyTo(&frame)
-									}
-									prev1 = ""
-									accessGranted = false
-									wait = 2000
-								}
-
+								prev1 = ""
+								accessGranted = false
+								wait = 2000
 							}
-						*/
+						}
 					}
-
 				}
 			}
 		}

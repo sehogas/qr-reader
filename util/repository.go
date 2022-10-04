@@ -2,15 +2,14 @@ package util
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	//	"net/url"
 	"time"
 
-	//_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 
-	_ "github.com/xeodou/go-sqlcipher"
+	// "github.com/xeodou/go-sqlcipher"
 
 	"github.com/sehogas/qr-reader/models"
 )
@@ -40,20 +39,21 @@ func NewRepository(driverName string, filepath string) *Repository {
 		db, err := sql.Open("sqlite3_log", fmt.Sprintf("file:%s?_auth&_auth_user=admin&_auth_pass=lalala&_auth_crypt=SSHA512&_auth_salt=233446", filepath))
 	*/
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s?_key=123456", filepath))
+	//db, err := sql.Open("sqlite3", fmt.Sprintf("%s?_key=123456", filepath))
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		log.Fatal(err)
 	}
 	if db == nil {
 		log.Fatalln("db nil")
 	}
-
-	p := "PRAGMA key = '123456';"
-	_, err = db.Exec(p)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	/*
+		p := "PRAGMA key = '123456';"
+		_, err = db.Exec(p)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 	err = createStruct(db)
 	if err != nil {
 		log.Fatalln(err)

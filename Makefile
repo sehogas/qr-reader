@@ -20,7 +20,7 @@ run:
 	SET GOEXE=$(GOEXE)
 	SET GOOS=$(OS) 
 	SET GOARCH=$(ARCH) 
-	go run main.go --client-id "Prueba" --zone-id "AQ" --event-id "I" --db-name "data.db" --device-id 0
+	go run main.go run --file .env.encrypted
 
 bin:
 	@echo Generando binario ... (en windows con poweshell)
@@ -34,8 +34,13 @@ bin:
 	SET GOARCH=$(ARCH) 
 	go build -v -x -ldflags=$(FLAGS)  .
 
-exec:
-	./qr-reader --client-id "Prueba" --zone-id "AQ" --event-id "I" --db-name "data.db" --device-id 0
+exec1:
+	@echo Ejecutando modo 1 QR ... (en windows con poweshell)
+	./qr-reader --mode 1 --client-id "prueba" --zone-id "AQ" --event-id "I" --device-id 0 
+
+exec2:
+	@echo Ejecutando modo 2 QR ... (en windows con poweshell)
+	./qr-reader --mode 2 --client-id "prueba" --zone-id "AQ" --event-id "I" --device-id 0 
 
 install: 
 	@echo Instalando binario ... (en windows con poweshell)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	_ "image/jpeg"
@@ -33,21 +34,29 @@ type LectorQR struct {
 	PathWavDenied  string
 }
 
-func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID, zone, event, pathWavGranted, pathWavDenied string) *LectorQR {
+// func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID, zone, event, pathWavGranted, pathWavDenied string) *LectorQR {
+func NewLectorQR(cfg map[string]string, repo *Repository) *LectorQR {
+	deviceID, _ := strconv.Atoi(cfg["DEVICE_ID"])
+	mode, _ := strconv.Atoi(cfg["MODE"])
 	return &LectorQR{
 		DeviceID:       deviceID,
-		FromFile:       fromFile,
+		FromFile:       cfg["RTSP"],
 		Repo:           repo,
 		Mode:           mode,
-		ClientID:       clientID,
-		Zone:           zone,
-		Event:          event,
-		PathWavGranted: pathWavGranted,
-		PathWavDenied:  pathWavDenied,
+		ClientID:       cfg["CLIENT_ID"],
+		Zone:           cfg["ZONE_ID"],
+		Event:          cfg["EVENT_ID"],
+		PathWavGranted: cfg["PATH_WAV_GRANTED"],
+		PathWavDenied:  cfg["PATH_WAV_DENIED"],
 	}
 }
 
 func (s *LectorQR) Start() {
+
+	wavDenied := NewSound(s.PathWavDenied)
+	wavDenied.Play()
+	wavGranted := NewSound(s.PathWavGranted)
+	wavGranted.Play()
 
 	var camera *gocv.VideoCapture
 	var err error
@@ -148,17 +157,17 @@ func (s *LectorQR) Start() {
 									}
 									log.Println("Access granted!")
 									green.CopyTo(&frame)
-									// err = wavGranted.Play()
-									// if err != nil {
-									// 	log.Println(err)
-									// }
+									err = wavGranted.Play()
+									if err != nil {
+										log.Println(err)
+									}
 								} else {
 									log.Println("Access denied!")
 									red.CopyTo(&frame)
-									// err = wavDenied.Play()
-									// if err != nil {
-									// 	log.Println(err)
-									// }
+									err = wavDenied.Play()
+									if err != nil {
+										log.Println(err)
+									}
 								}
 								accessGranted = false
 								wait = 2000
@@ -247,7 +256,7 @@ func (s *LectorQR) Start() {
 		keyPrev = key
 		wait = 1
 	}
-	log.Println("Done")
+	log.Println("Close camera")
 }
 
 func IsVehicle(qr string) bool {

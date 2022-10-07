@@ -4,85 +4,105 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
+	"github.com/sehogas/qr-reader/sigep"
 	"github.com/sehogas/qr-reader/util"
 )
 
-var clientID string
-var zoneID string
-var eventID string
-var deviceID int
-var mode int
-var db string
-var rtsp string
-var pathWavGranted string
-var pathWavDenied string
-
 func main() {
 
-	log.Println("Iniciando...")
-
-	flag.StringVar(&clientID, "client-id", "", "String value. Instance")
-	flag.StringVar(&zoneID, "zone-id", "", "String value. Zone")
-	flag.StringVar(&eventID, "event-id", "", "String value. Event. (I=In,O=Out)")
-	flag.IntVar(&mode, "mode", 1, "Optional integer value. Read mode. Default=1. (1=Only persons,2:Persons+Vehicles)")
-	flag.IntVar(&deviceID, "device-id", 0, "Optional integer value. Device identifier. Default=0. (0=Webcam default)")
-	flag.StringVar(&db, "db-name", "data.db", "Optional string value. Database name")
-	flag.StringVar(&rtsp, "rtsp", "", "Optional string value. Url video stream (rtsp)")
-	flag.StringVar(&pathWavGranted, "path-wav-granted", "./assets/access-granted.wav", "Optional string value. File path .wav for access granted")
-	flag.StringVar(&pathWavDenied, "path-wav-denied", "./assets/access-denied.wav", "Optional string value. File path .wav for access denied")
-
-	flag.Parse()
-
-	if clientID == "" {
-		log.Fatal("Required [client-id] parameter")
+	qrReaderKey := os.Getenv("QR_READER_KEY")
+	if qrReaderKey == "" {
+		log.Fatal("No enviroment key present")
 	}
 
-	if zoneID == "" {
-		log.Fatal("Required [zone] parameter")
+	runCmd := flag.NewFlagSet("run", flag.ExitOnError)
+	enviromentFileEcryptedParam := runCmd.String("file", "", "Environment file encrypted")
+
+	encryptCmd := flag.NewFlagSet("encrypt", flag.ExitOnError)
+	fileEncryptParam := encryptCmd.String("file", "", "File to encrypt")
+
+	decryptCmd := flag.NewFlagSet("decrypt", flag.ExitOnError)
+	fileDecryptParam := decryptCmd.String("file", "", "File to decrypt")
+
+	if len(os.Args) < 2 {
+		log.Fatal("Missing parameters")
 	}
 
-	if eventID == "" {
-		log.Fatal("Required [event] parameter")
-	} else {
-		if eventID == "I" || eventID == "O" {
-			if eventID == "I" {
-				eventID = "E"
+	// Check arguments
+	switch os.Args[1] {
+	case "encrypt":
+		encryptCmd.Parse(os.Args[2:])
+		if *fileEncryptParam == "" {
+			log.Fatal("File to encrypt required")
+		}
+	case "decrypt":
+		decryptCmd.Parse(os.Args[2:])
+		if *fileDecryptParam == "" {
+			log.Fatal("File to encrypt required")
+		}
+	case "run":
+		runCmd.Parse(os.Args[2:])
+		if *enviromentFileEcryptedParam == "" {
+			log.Fatal("Encrypted enviroment file required")
+		}
+	default:
+		fmt.Println("Expected 'encrypt' or 'decrypt' subcommands")
+		os.Exit(1)
+	}
+
+	log.Println("Starting...")
+	switch os.Args[1] {
+	case "encrypt":
+		util.EncryptFile(*fileEncryptParam, []byte(qrReaderKey), ".encrypted")
+	case "decrypt":
+		util.DecryptFile(*fileDecryptParam, []byte(qrReaderKey), ".decrypted")
+	case "run":
+		mConfig, err := util.GetConfigFromEncryptedFile(*enviromentFileEcryptedParam, []byte(qrReaderKey))
+		if err != nil {
+			log.Fatal(err)
+		}
+		util.CheckConfig(mConfig)
+
+		repo := util.NewRepository("sqlite3", mConfig["DB"])
+		defer repo.Close()
+
+		ticker := time.NewTicker(1 * time.Minute)
+		done := make(chan bool)
+		go inBackground(done, ticker, mConfig, repo)
+
+		lectorQR := util.NewLectorQR(mConfig, repo)
+		lectorQR.Start()
+
+		ticker.Stop()
+		done <- true
+
+	}
+
+	log.Println("Finish")
+}
+
+func inBackground(c chan bool, ticker *time.Ticker, cfg map[string]string, repo *util.Repository) {
+	for {
+		select {
+		case <-c:
+			return
+		case t := <-ticker.C:
+			log.Println("Sync at ", t.UTC())
+
+			cards, err := sigep.GetCardsFromServer(cfg["URL_GET_CARDS"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
+			if err != nil {
+				log.Println("*** Error getting cards from server ***")
 			}
-			if eventID == "O" {
-				eventID = "S"
+			log.Printf("Total cards read: %d\n", len(cards))
+			repo.SyncCards(cards)
+			totalCards, err := repo.TotalCards()
+			if err != nil {
+				log.Println("*** Error checking total cards ***")
 			}
-		} else {
-			log.Fatal("Invalid [event] parameter")
+			log.Printf("Total local cards: %d \n", totalCards)
 		}
 	}
-
-	if mode < 1 || mode > 2 {
-		log.Fatal("Invalid mode")
-	}
-
-	if rtsp == "" {
-		fmt.Printf("DeviceID: %d \n", deviceID)
-	} else {
-		fmt.Printf("RTSP: %s \n", rtsp)
-	}
-	fmt.Printf("Mode: %d \n", mode)
-	fmt.Printf("ZoneID: %s \n", zoneID)
-	fmt.Printf("EventID: %s \n", eventID)
-
-	//Init audios
-
-	_ = util.NewSound(pathWavDenied)
-	//defer wavDenied.Close()
-
-	//_ = util.NewSound(pathWavGranted)
-	//defer wavGranted.Close()
-
-	// defer repo.Close()
-
-	// repo.InsertOrReplaceCards(util.TestCards())
-
-	// lectorQR := util.NewLectorQR(deviceID, rtsp, repo, mode, clientID, zoneID, eventID, pathWavGranted, pathWavDenied)
-	// lectorQR.Start()
-	fmt.Scanln()
 }

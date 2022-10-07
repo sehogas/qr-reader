@@ -3,10 +3,12 @@ package models
 import "time"
 
 type Card struct {
-	Code    string
-	Since   time.Time
-	Until   time.Time
-	Enabled bool
+	Code     string    `db:"Code" json:"code"`
+	DateFrom time.Time `db:"DateFrom" json:"from"`
+	DateTo   time.Time `db:"DateTo" json:"to"`
+	Enabled  bool      `db:"Enabled" json:"enabled"`
+	Photo    string    `db:"Photo" json:"photo"`
+	Deleted  bool      `db:"Deleted" json:"deleted"`
 }
 
 type Access struct {

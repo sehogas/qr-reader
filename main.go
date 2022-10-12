@@ -115,12 +115,12 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	cards, syncTime, err := sigep.GetCardsFromServer(cfg["URL_GET_CARDS"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
 	if err != nil {
-		log.Println("*** Error consultando servidor tarjetas a sincronizar ***", err)
+		log.Println("*** Error consultando servidor para sincronizar tarjetas ***")
 		status = "ERROR"
 	} else {
 		err = repo.SyncCards(cards, syncTime)
 		if err != nil {
-			log.Println("*** Error actualización local de tarjetas a sincronizar ***", err)
+			log.Println("*** Error actualización tarjetas locales ***")
 			status = "ERROR"
 		}
 	}
@@ -128,7 +128,7 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 	tSync := time.Now()
 	access, err := repo.GetAccessToSync(tSync)
 	if err != nil {
-		log.Println("*** Error consultando accesos para enviar al servidor ***", err)
+		log.Println("*** Error consultando movimientos para enviar al servidor ***")
 		status = "ERROR"
 	} else {
 		totalAccessSync = len(access)
@@ -139,12 +139,12 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 			if err != nil {
 				bOk = false
 				totalAccessSync = 0
-				log.Println("*** Error enviando pendientes al servidor ***", err)
+				log.Println("*** Error enviando pendientes al servidor ***")
 				status = "ERROR"
 			}
 			err = repo.SyncAccessUpdateDelete(tSync, bOk)
 			if err != nil {
-				log.Println("*** Error actualizando pendientes locales ***", err)
+				log.Println("*** Error actualizando pendientes locales ***")
 				status = "ERROR"
 			}
 		}
@@ -152,13 +152,13 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	totalCards, err := repo.TotalCards()
 	if err != nil {
-		log.Println("*** Error consultando tarjetas locales ***", err)
+		log.Println("*** Error consultando total de tarjetas locales ***")
 		status = "ERROR"
 	}
 
 	TotalEarrings, err := repo.TotalEarrings()
 	if err != nil {
-		log.Println("*** Error consultando pendientes locales ***", err)
+		log.Println("*** Error consultando total de pendientes locales ***")
 		status = "ERROR"
 	}
 

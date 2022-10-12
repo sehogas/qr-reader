@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -99,12 +98,16 @@ func (s *LectorQR) Start() {
 
 	if s.FromFile == "" {
 		camera, err = gocv.VideoCaptureDevice(s.DeviceID)
+		if err != nil {
+			log.Printf("*** Error abriendo cámara (device ID.:%d) ***\n", s.DeviceID)
+			return
+		}
 	} else {
 		camera, err = gocv.VideoCaptureFile(s.FromFile)
-	}
-	if err != nil {
-		log.Println(err)
-		return
+		if err != nil {
+			log.Println("*** Error abriendo cámara por protocolo RTSP ***")
+			return
+		}
 	}
 	defer camera.Close()
 
@@ -234,9 +237,9 @@ func (s *LectorQR) Start() {
 			s.DebugMode = !s.DebugMode
 			log.Printf("DEBUG MODE: %v\n", s.DebugMode)
 		}
-		if key != -1 {
-			fmt.Println(key)
-		}
+		// if key != -1 {
+		// 	fmt.Println(key)
+		// }
 
 		wait = 1
 	}

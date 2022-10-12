@@ -130,7 +130,7 @@ func PrintData(data models.AccessDataResponse) {
 		sEventual = "SI"
 	}
 	log.Printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-		fmt.Sprintf("%20sTipo y Nro.Doc.  : %s %s", "", data.DocumentType, data.DocumentNumber),
+		fmt.Sprintf("Tipo y Nro.Doc.  : %s %s", data.DocumentType, data.DocumentNumber),
 		fmt.Sprintf("%20sApellido y Nombre: %s", "", data.PersonName),
 		fmt.Sprintf("%20sVigencia Tarjeta : %s - %s", "", data.DateFrom.Format("02/01/2006"), data.DateTo.Format("02/01/2006")),
 		fmt.Sprintf("%20sProntuario P.N.A.: %s", "", data.PNA),

@@ -12,14 +12,17 @@ type Card struct {
 }
 
 type Access struct {
-	Code1      string    `db:"Code1" json:"code1"`
-	Code2      string    `db:"Code2" json:"code2"`
-	AccessDate time.Time `db:"AccessDate" json:"accessDate"`
+	UUID       string    `db:"UUID" json:"uuid"`
 	Zone       string    `db:"Zone" json:"zone"`
 	Event      string    `db:"Event" json:"event"`
+	AccessDate time.Time `db:"AccessDate" json:"accessDate"`
+	Code1      string    `db:"Code1" json:"code1"`
+	Code2      string    `db:"Code2" json:"code2"`
+	SyncDate   time.Time `db:"SyncDate" json:"syncDate"`
 }
 
-type AccessZone struct {
-	ClientID string   `db:"ClientID" json:"clientId"`
-	Access   []Access `json:"access"`
+type AccessBulk struct {
+	SyncDate time.Time `db:"SyncDate" json:"syncDate"`
+	ClientID string    `db:"ClientID" json:"clientId"`
+	Access   []Access  `json:"access"`
 }

@@ -2,33 +2,37 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/sehogas/qr-reader/models"
 	"github.com/sehogas/qr-reader/sigep"
 	"github.com/sehogas/qr-reader/util"
 )
+
+var ticker *time.Ticker
+var done chan bool
 
 func main() {
 
 	qrReaderKey := os.Getenv("QR_READER_KEY")
 	if qrReaderKey == "" {
-		log.Fatal("No enviroment key present")
+		log.Fatal("No se encontró la clave del producto")
 	}
 
 	runCmd := flag.NewFlagSet("run", flag.ExitOnError)
-	enviromentFileEcryptedParam := runCmd.String("file", "", "Environment file encrypted")
+	enviromentFileEcryptedParam := runCmd.String("file", "", "Archivo de variables de entorno encriptado")
 
 	encryptCmd := flag.NewFlagSet("encrypt", flag.ExitOnError)
-	fileEncryptParam := encryptCmd.String("file", "", "File to encrypt")
+	fileEncryptParam := encryptCmd.String("file", "", "Archivo a encriptar")
 
 	decryptCmd := flag.NewFlagSet("decrypt", flag.ExitOnError)
-	fileDecryptParam := decryptCmd.String("file", "", "File to decrypt")
+	fileDecryptParam := decryptCmd.String("file", "", "Archivo a desencriptar")
 
 	if len(os.Args) < 2 {
-		log.Fatal("Missing parameters")
+		log.Fatal("Faltan parámetros")
 	}
 
 	// Check arguments
@@ -36,73 +40,128 @@ func main() {
 	case "encrypt":
 		encryptCmd.Parse(os.Args[2:])
 		if *fileEncryptParam == "" {
-			log.Fatal("File to encrypt required")
+			log.Fatal("Archivo a encriptar requerido")
 		}
 	case "decrypt":
 		decryptCmd.Parse(os.Args[2:])
 		if *fileDecryptParam == "" {
-			log.Fatal("File to encrypt required")
+			log.Fatal("Archivo a desencriptar requerido")
 		}
 	case "run":
 		runCmd.Parse(os.Args[2:])
 		if *enviromentFileEcryptedParam == "" {
-			log.Fatal("Encrypted enviroment file required")
+			log.Fatal("Archivo de variables de entorno encriptado requerido")
 		}
 	default:
-		fmt.Println("Expected 'encrypt' or 'decrypt' subcommands")
-		os.Exit(1)
+		log.Fatal("Se esperaba el comando 'run' ó 'encrypt' ó 'decrypt'")
 	}
 
-	log.Println("Starting...")
+	log.Println("Inicio del programa...")
 	switch os.Args[1] {
 	case "encrypt":
 		util.EncryptFile(*fileEncryptParam, []byte(qrReaderKey), ".encrypted")
 	case "decrypt":
 		util.DecryptFile(*fileDecryptParam, []byte(qrReaderKey), ".decrypted")
 	case "run":
-		mConfig, err := util.GetConfigFromEncryptedFile(*enviromentFileEcryptedParam, []byte(qrReaderKey))
+		cfg, err := util.GetConfigFromEncryptedFile(*enviromentFileEcryptedParam, []byte(qrReaderKey))
 		if err != nil {
 			log.Fatal(err)
 		}
-		util.CheckConfig(mConfig)
+		util.CheckConfig(cfg)
 
-		repo := util.NewRepository("sqlite3", mConfig["DB"])
-		defer repo.Close()
+		repo := util.NewRepository("sqlite3", cfg["DB"])
+		defer repo.Db.Close()
+		if totalCards, _ := repo.TotalCards(); totalCards == 0 {
+			fnSync(time.Now().Local(), cfg, repo)
+		} else {
+			log.Printf("Total de tarjetas locales: %d \n", totalCards)
+		}
 
-		ticker := time.NewTicker(1 * time.Minute)
-		done := make(chan bool)
-		go inBackground(done, ticker, mConfig, repo)
+		syncTime, err := strconv.ParseInt(cfg["SYNC_TIME"], 10, 64)
+		if err != nil {
+			log.Fatal("Error convirtiendo parámetro SYNC_TIME")
+		}
 
-		lectorQR := util.NewLectorQR(mConfig, repo)
+		ticker = time.NewTicker(time.Duration(syncTime) * time.Minute)
+		done = make(chan bool)
+		go inBackground(cfg, repo, fnSync)
+
+		lectorQR := util.NewLectorQR(cfg, repo)
 		lectorQR.Start()
 
 		ticker.Stop()
 		done <- true
-
 	}
-
-	log.Println("Finish")
+	log.Println("Fin del programa")
 }
 
-func inBackground(c chan bool, ticker *time.Ticker, cfg map[string]string, repo *util.Repository) {
+func inBackground(cfg map[string]string, repo *util.Repository, f func(t time.Time, cfg map[string]string, repo *util.Repository)) {
 	for {
 		select {
-		case <-c:
+		case <-done:
 			return
 		case t := <-ticker.C:
-			log.Println("Sync at ", t.UTC())
-
-			cards, err := sigep.GetCardsFromServer(cfg["URL_GET_CARDS"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
-			if err != nil {
-				log.Println("*** Error getting cards from server ***")
-			}
-			log.Printf("Total cards read: %d\n", len(cards))
-			repo.SyncCards(cards)
-			totalCards, err := repo.TotalCards()
-			if err != nil {
-				log.Println("*** Error checking total cards ***")
-			}
-			log.Printf("Total local cards: %d \n", totalCards)
+			f(t, cfg, repo)
 		}
 	}
+}
+
+func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
+
+	var totalAccessSync int
+	var status string = "OK"
+
+	consultarAnulados := !repo.Config.LastUpdateCards.Equal(time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	cards, syncTime, err := sigep.GetCardsFromServer(cfg["URL_GET_CARDS"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
+	if err != nil {
+		log.Println("*** Error consultando servidor tarjetas a sincronizar ***", err)
+		status = "ERROR"
+	} else {
+		err = repo.SyncCards(cards, syncTime)
+		if err != nil {
+			log.Println("*** Error actualización local de tarjetas a sincronizar ***", err)
+			status = "ERROR"
+		}
+	}
+
+	tSync := time.Now()
+	access, err := repo.GetAccessToSync(tSync)
+	if err != nil {
+		log.Println("*** Error consultando accesos para enviar al servidor ***", err)
+		status = "ERROR"
+	} else {
+		totalAccessSync = len(access)
+		if totalAccessSync > 0 {
+			var bOk bool = true
+
+			err := sigep.SendToServerBulk(cfg["URL_POST_BULK_ACCESS"], cfg["API_KEY"], models.AccessBulk{SyncDate: tSync, ClientID: cfg["CLIENT_ID"], Access: access})
+			if err != nil {
+				bOk = false
+				totalAccessSync = 0
+				log.Println("*** Error enviando pendientes al servidor ***", err)
+				status = "ERROR"
+			}
+			err = repo.SyncAccessUpdateDelete(tSync, bOk)
+			if err != nil {
+				log.Println("*** Error actualizando pendientes locales ***", err)
+				status = "ERROR"
+			}
+		}
+	}
+
+	totalCards, err := repo.TotalCards()
+	if err != nil {
+		log.Println("*** Error consultando tarjetas locales ***", err)
+		status = "ERROR"
+	}
+
+	TotalEarrings, err := repo.TotalEarrings()
+	if err != nil {
+		log.Println("*** Error consultando pendientes locales ***", err)
+		status = "ERROR"
+	}
+
+	log.Printf("Sincronización %s:  [Total tarjetas: %d], [Total recibido: %d], [Total a enviado: %d], [Total pendientes: %d], [Fecha del servidor: %s]\n",
+		status, totalCards, len(cards), totalAccessSync, TotalEarrings, syncTime.Format("2006-01-02 15:04:05"))
 }

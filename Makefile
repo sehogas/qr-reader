@@ -10,7 +10,32 @@ GOEXE=".exe"
 NETWORK=sigep-network
 ########################################################
 
-run:
+run: sets run_cam4
+
+sets:
+	SET CC=x86_64-w64-mingw32-gcc
+	SET AR=x86_64-w64-mingw32-ar
+	SET CGO_ENABLED=$(CGO) 
+	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
+	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
+	SET GOEXE=$(GOEXE)
+	SET GOOS=$(OS) 
+	SET GOARCH=$(ARCH) 
+
+
+run_cam1:
+	go run main.go run --file cam1_aq_i.env.encrypted
+
+run_cam2:
+	go run main.go run --file cam2_aq_s.env.encrypted
+
+run_cam3:
+	go run main.go run --file cam3_ap_i.env.encrypted
+
+run_cam4:
+	go run main.go run --file cam4_aq_i_x2.env.encrypted
+
+encrypt1:
 	@echo Ejecutando programa...
 	SET CC=x86_64-w64-mingw32-gcc
 	SET AR=x86_64-w64-mingw32-ar
@@ -20,7 +45,31 @@ run:
 	SET GOEXE=$(GOEXE)
 	SET GOOS=$(OS) 
 	SET GOARCH=$(ARCH) 
-	go run main.go run --file .env.encrypted
+	go run main.go encrypt --file cam1_aq_i.env
+
+encrypt2:
+	@echo Ejecutando programa...
+	SET CC=x86_64-w64-mingw32-gcc
+	SET AR=x86_64-w64-mingw32-ar
+	SET CGO_ENABLED=$(CGO) 
+	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
+	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
+	SET GOEXE=$(GOEXE)
+	SET GOOS=$(OS) 
+	SET GOARCH=$(ARCH) 
+	go run main.go encrypt --file cam2_aq_s.env
+
+
+runencrypt3: 
+	go run main.go encrypt --file cam3_ap_i.env
+
+encrypt3: sets runencrypt3
+
+runencrypt4: 
+	go run main.go encrypt --file cam4_aq_i_x2.env
+
+encrypt4: sets runencrypt4
+
 
 bin:
 	@echo Generando binario ... (en windows con poweshell)
@@ -36,11 +85,15 @@ bin:
 
 exec1:
 	@echo Ejecutando modo 1 QR ... (en windows con poweshell)
-	./qr-reader --mode 1 --client-id "prueba" --zone-id "AQ" --event-id "I" --device-id 0 
+	./qr-reader run --file=cam1_aq_i.env.encrypted
 
 exec2:
 	@echo Ejecutando modo 2 QR ... (en windows con poweshell)
-	./qr-reader --mode 2 --client-id "prueba" --zone-id "AQ" --event-id "I" --device-id 0 
+	./qr-reader run --file=cam2_aq_s.env.encrypted
+
+exec3:
+	@echo Ejecutando modo 1 QR ... (en windows con poweshell)
+	./qr-reader run --file=cam3_ap_i.env.encrypted
 
 install: 
 	@echo Instalando binario ... (en windows con poweshell)

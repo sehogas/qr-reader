@@ -17,10 +17,10 @@ type SFX struct {
 }
 
 func NewSound(path string) *SFX {
-
 	sfx, err := loadSound(path)
 	if err != nil {
-		log.Fatal("Error loading audio: ", err)
+		//log.Fatal("Error loading audio: ", err)
+		log.Fatal("Error cargando audio: ", err)
 	}
 
 	sfx.buffer = beep.NewBuffer(sfx.format)
@@ -30,21 +30,19 @@ func NewSound(path string) *SFX {
 	return sfx
 }
 
-func (s *SFX) Play() error {
+func (s *SFX) Play() {
 	err := speaker.Init(s.format.SampleRate, s.format.SampleRate.N(time.Second/10))
 	if err != nil {
-		return err
+		log.Println("Error iniciando medio de audio.", err)
+		return
 	}
 
 	sound := s.buffer.Streamer(0, s.buffer.Len())
-
 	done := make(chan bool)
 	speaker.Play(sound, beep.Callback(func() {
 		done <- true
 	}))
 	<-done
-
-	return nil
 }
 
 func loadSound(path string) (*SFX, error) {

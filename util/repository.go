@@ -6,6 +6,7 @@ import (
 
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sehogas/qr-reader/models"
 )
@@ -17,14 +18,12 @@ type Repository struct {
 
 type Config struct {
 	LastUpdateCards time.Time
-	Anulados        bool
 }
 
 func NewRepository(driverName string, filepath string) *Repository {
 
 	defaultConfig := &Config{
-		LastUpdateCards: time.Now().AddDate(-50, 0, 0),
-		Anulados:        false,
+		LastUpdateCards: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
 	db, err := sql.Open(driverName, filepath)
@@ -47,7 +46,7 @@ func NewRepository(driverName string, filepath string) *Repository {
 
 	if (config == Config{}) {
 		config = *defaultConfig
-		err = insertDefaultConfig(db, defaultConfig)
+		err = insertOrReplaceDefaultConfig(db, defaultConfig)
 		if err != nil {
 			log.Fatal("Set default config: ", err)
 		}
@@ -86,11 +85,13 @@ func createStruct(Db *sql.DB) error {
 
 	sql_table = `
 		CREATE TABLE IF NOT EXISTS Access(
+			UUID VARCHAR(36),
 			Code1 VARCHAR(40),
 			Code2 VARCHAR(40),
 			AccessDate DATETIME,
 			Zone VARCHAR(2),
-			Event VARCHAR(1)
+			Event VARCHAR(1),
+			SyncDate DATETIME
 		);`
 	_, err = Db.Exec(sql_table)
 	if err != nil {
@@ -100,9 +101,9 @@ func createStruct(Db *sql.DB) error {
 	return nil
 }
 
-func insertDefaultConfig(Db *sql.DB, config *Config) error {
+func insertOrReplaceDefaultConfig(Db *sql.DB, config *Config) error {
 	sql := `
-	INSERT INTO Config(
+	INSERT OR REPLACE INTO Config(
 		LastUpdateCards
 	) values(?)
 	`
@@ -146,8 +147,13 @@ func readConfig(Db *sql.DB) (Config, error) {
 	return config, nil
 }
 
-func (r *Repository) SyncCards(items []models.Card) error {
-	sql := `
+func (r *Repository) NewUUID() string {
+	return uuid.New().String()
+}
+
+func (r *Repository) SyncCards(items []models.Card, serverTime time.Time) error {
+	if len(items) > 0 {
+		sql := `
 		INSERT OR REPLACE INTO Cards(
 			Code,
 			DateFrom,
@@ -156,32 +162,49 @@ func (r *Repository) SyncCards(items []models.Card) error {
 			Photo,
 			Deleted
 		) VALUES (?, ?, ?, ?, ?, ?)
-	`
-	stmt, err := r.Db.Prepare(sql)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, i := range items {
-		_, err = stmt.Exec(i.Code, i.DateFrom, i.DateTo, i.Enabled, i.Photo, i.Deleted)
+		`
+		stmt, err := r.Db.Prepare(sql)
 		if err != nil {
 			return err
 		}
-	}
+		defer stmt.Close()
 
-	sql = `
-		DELETE FROM Cards WHERE Deleted = 1
+		for _, i := range items {
+			_, err = stmt.Exec(i.Code, i.DateFrom, i.DateTo, i.Enabled, i.Photo, i.Deleted)
+			if err != nil {
+				return err
+			}
+		}
+
+		sql = `
+			DELETE FROM Cards WHERE Deleted = 1
+			`
+		stmt2, err2 := r.Db.Prepare(sql)
+		if err2 != nil {
+			return err2
+		}
+		defer stmt2.Close()
+
+		_, err2 = stmt2.Exec()
+		if err2 != nil {
+			return err2
+		}
+
+		sql = `
+		UPDATE Config SET LastUpdateCards = ?
 		`
-	stmt2, err2 := r.Db.Prepare(sql)
-	if err2 != nil {
-		return err2
-	}
-	defer stmt2.Close()
+		stmt3, err3 := r.Db.Prepare(sql)
+		if err3 != nil {
+			return err3
+		}
+		defer stmt3.Close()
 
-	_, err = stmt2.Exec()
-	if err != nil {
-		return err
+		_, err3 = stmt3.Exec(serverTime)
+		if err3 != nil {
+			return err3
+		}
+
+		r.Config.LastUpdateCards = serverTime
 	}
 
 	return nil
@@ -206,6 +229,107 @@ func (r *Repository) TotalCards() (int64, error) {
 	}
 
 	return count, nil
+}
+
+func (r *Repository) TotalEarrings() (int64, error) {
+	var count int64 = 0
+	sql := `
+	SELECT COUNT(*)
+	FROM Access
+	`
+	stmt, err := r.Db.Prepare(sql)
+	if err != nil {
+		return count, err
+	}
+	defer stmt.Close()
+
+	row := r.Db.QueryRow(sql)
+	err = row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (r *Repository) TotalAccessToSync() (int64, error) {
+	var count int64 = 0
+	sql := "SELECT COUNT(*)	FROM Access	WHERE SyncDate IS NULL"
+
+	stmt, err := r.Db.Prepare(sql)
+	if err != nil {
+		return count, err
+	}
+	defer stmt.Close()
+
+	row := r.Db.QueryRow(sql)
+	err = row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (r *Repository) GetAccessToSync(date time.Time) ([]models.Access, error) {
+	var items []models.Access
+	sql := "UPDATE Access SET SyncDate = ? WHERE SyncDate IS NULL"
+	stmt, err := r.Db.Prepare(sql)
+	if err != nil {
+		return items, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(date)
+	if err != nil {
+		return items, err
+	}
+
+	sql = "SELECT UUID, Code1, Code2, AccessDate, Zone, Event, SyncDate FROM Access WHERE SyncDate = ?"
+	stmt2, err2 := r.Db.Prepare(sql)
+	if err2 != nil {
+		return items, err2
+	}
+	defer stmt2.Close()
+
+	rows, err2 := r.Db.Query(sql, date)
+	if err2 != nil {
+		return items, err2
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var i models.Access
+		err2 := rows.Scan(&i.UUID, &i.Code1, &i.Code2, &i.AccessDate, &i.Zone, &i.Event, &i.SyncDate)
+		if err2 != nil {
+			return items, err2
+		}
+		items = append(items, i)
+	}
+
+	return items, nil
+}
+
+func (r *Repository) SyncAccessUpdateDelete(date time.Time, ok bool) error {
+	var sql string
+	if ok {
+		sql = "DELETE FROM Access WHERE SyncDate = ?"
+	} else {
+		sql = "UPDATE Access SET SyncDate = NULL WHERE SyncDate = ?"
+	}
+
+	stmt, err := r.Db.Prepare(sql)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(date)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repository) ValidCard(code string) (bool, error) {
@@ -242,12 +366,13 @@ func (r *Repository) ValidCard(code string) (bool, error) {
 func (r *Repository) InsertAccess(item *models.Access) error {
 	sql := `
 	INSERT INTO Access(
+		UUID,
 		Code1,
 		Code2,
 		AccessDate,
 		Zone,
 		Event
-	) values(?, ?, ?, ?, ?)
+	) values(?, ?, ?, ?, ?, ?)
 	`
 	stmt, err := r.Db.Prepare(sql)
 	if err != nil {
@@ -255,13 +380,14 @@ func (r *Repository) InsertAccess(item *models.Access) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(item.Code1, item.Code2, item.AccessDate, item.Zone, item.Event)
+	_, err = stmt.Exec(item.UUID, item.Code1, item.Code2, item.AccessDate, item.Zone, item.Event)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+/*
 func TestCards() []models.Card {
 	return []models.Card{
 		{Code: "001-42070AED-6E95-4586-91D0-F90BB10D1B7F", DateFrom: time.Now(), DateTo: time.Now().Add(30 * time.Hour).UTC(), Enabled: true, Photo: "", Deleted: false},
@@ -271,3 +397,4 @@ func TestCards() []models.Card {
 		{Code: "002-94E5801E-69BE-4268-9B18-F5C4CB7C5181", DateFrom: time.Now(), DateTo: time.Now().Add(60 * time.Hour).UTC(), Enabled: false, Photo: "", Deleted: false},
 	}
 }
+*/

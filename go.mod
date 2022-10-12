@@ -4,15 +4,13 @@ go 1.18
 
 require gocv.io/x/gocv v0.31.0
 
-require github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
-
 require (
 	github.com/faiface/beep v1.1.0
 	github.com/mattn/go-sqlite3 v1.14.15
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/hajimehoshi/oto v0.7.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8 // indirect

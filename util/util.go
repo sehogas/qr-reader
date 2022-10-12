@@ -16,22 +16,22 @@ func FileExists(filename string) bool {
 func CheckConfig(m map[string]string) {
 
 	if m == nil {
-		log.Fatal("Invalid environment file")
+		log.Fatal("Archivo de configuración de entorno inválido")
 	}
 
 	v, e := m["CLIENT_ID"]
 	if !e || v == "" {
-		log.Fatal("CLIENT_ID is a required parameter")
+		log.Fatal("Se requiere el parámetro CLIENT_ID")
 	}
 
 	v, e = m["ZONE_ID"]
 	if !e || v == "" {
-		log.Fatal("ZONE_ID is a required parameter")
+		log.Fatal("Se requiere el parámetro ZONE_ID")
 	}
 
 	v, e = m["EVENT_ID"]
 	if !e || v == "" {
-		log.Fatal("EVENT_ID is a required parameter")
+		log.Fatal("Se requiere el parámetro EVENT_ID")
 	}
 	if v == "I" || v == "O" {
 		if v == "I" {
@@ -41,76 +41,136 @@ func CheckConfig(m map[string]string) {
 			m["EVENT_ID"] = "S"
 		}
 	} else {
-		log.Fatal("EVENT_ID is a required parameter")
+		log.Fatal("El parámetro EVENT_ID es inválido")
 	}
 
 	v, e = m["MODE"]
 	if !e || v == "" {
-		log.Fatal("MODE is a required parameter")
+		log.Fatal("Se requiere el parámetro MODE")
 	}
 	if !(v == "1" || v == "2") {
-		log.Fatal("The value MODE parameter is invalid")
+		log.Fatal("El parámetro MODE es inválido")
 	}
 
 	v, e = m["URL_GET_CARDS"]
 	if !e || v == "" {
-		log.Fatal("URL_GET_CARDS is a required parameter")
+		log.Fatal("Se requiere el parámetro URL_GET_CARDS")
 	}
 
 	v, e = m["URL_POST_ACCESS"]
 	if !e || v == "" {
-		log.Fatal("URL_POST_ACCESS is a required parameter")
+		log.Fatal("Se requiere el parámetro URL_POST_ACCESS")
 	}
 
 	v, e = m["API_KEY"]
 	if !e || v == "" {
-		log.Fatal("API_KEY is a required parameter")
+		log.Fatal("Se requiere el parámetro API_KEY")
 	}
 
 	v, e = m["DEVICE_ID"]
 	if !e || v == "" {
-		log.Fatal("DEVICE_ID is a required parameter")
+		log.Fatal("Se requiere el parámetro DEVICE_ID")
 	}
 
 	_, e = m["RTSP"]
 	if !e {
-		log.Fatal("RTSP is a required parameter")
+		log.Fatal("Se requiere el parámetro RTSP aunque esté vacío")
 	}
 
 	v, e = m["DB"]
 	if !e || v == "" {
-		log.Fatal("DB is a required parameter")
+		log.Fatal("Se requiere el parámetro DB")
 	}
 
-	v, e = m["PATH_WAV_GRANTED"]
+	v, e = m["FILE_WAV_GRANTED"]
 	if !e || v == "" {
-		log.Fatal("PATH_WAV_GRANTED is a required parameter")
+		log.Fatal("Se requiere el parámetro FILE_WAV_GRANTED")
 	}
 	if !FileExists(v) {
-		log.Fatal("File configured in parameter PATH_WAV_GRANTED does not exist")
+		log.Fatal("El archivo configurado en el parámetro FILE_WAV_GRANTED no existe")
 	}
 
-	v, e = m["PATH_WAV_DENIED"]
+	v, e = m["FILE_WAV_DENIED"]
 	if !e || v == "" {
-		log.Fatal("PATH_WAV_DENIED is a required parameter")
+		log.Fatal("Se requiere el parámetro FILE_WAV_DENIED")
 	}
 	if !FileExists(v) {
-		log.Fatal("File configured in parameter PATH_WAV_DENIED does not exist")
+		log.Fatal("El archivo configurado en el parámetro FILE_WAV_DENIED no existe")
 	}
 
-	v, e = m["PATH_BACKGROUND_GRANTED"]
+	v, e = m["FILE_BACKGROUND_GRANTED"]
 	if !e || v == "" {
-		log.Fatal("PATH_BACKGROUND_GRANTED is a required parameter")
+		log.Fatal("Se requiere el parámetro FILE_BACKGROUND_GRANTED")
 	}
 	if !FileExists(v) {
-		log.Fatal("File configured in parameter PATH_BACKGROUND_GRANTED does not exist")
+		log.Fatal("El archivo configurado en el parámetro FILE_BACKGROUND_GRANTED no existe")
 	}
 
-	v, e = m["PATH_BACKGROUND_DENIED"]
+	v, e = m["FILE_BACKGROUND_DENIED"]
 	if !e || v == "" {
-		log.Fatal("PATH_BACKGROUND_DENIED is a required parameter")
+		log.Fatal("Se requiere el parámetro FILE_BACKGROUND_DENIED")
 	}
 	if !FileExists(v) {
-		log.Fatal("File configured in parameter PATH_BACKGROUND_DENIED does not exist")
+		log.Fatal("El archivo configurado en el parámetro FILE_BACKGROUND_DENIED no existe")
+	}
+
+	v, e = m["FILE_DETECT_PROTO_TXT"]
+	if !e || v == "" {
+		log.Fatal("Se requiere el parámetro FILE_DETECT_PROTO_TXT")
+	}
+	if !FileExists(v) {
+		log.Fatal("El archivo configurado en el parámetro FILE_DETECT_PROTO_TXT no existe")
+	}
+
+	v, e = m["FILE_DETECT_CAFFE"]
+	if !e || v == "" {
+		log.Fatal("Se requiere el parámetro FILE_DETECT_CAFFE")
+	}
+	if !FileExists(v) {
+		log.Fatal("El archivo configurado en el parámetro FILE_DETECT_CAFFE no existe")
+	}
+
+	v, e = m["FILE_SUPER_PROTO_TXT"]
+	if !e || v == "" {
+		log.Fatal("Se requiere el parámetro FILE_SUPER_PROTO_TXT")
+	}
+	if !FileExists(v) {
+		log.Fatal("El archivo configurado en el parámetro FILE_SUPER_PROTO_TXT no existe")
+	}
+
+	v, e = m["FILE_SUPER_CAFFE"]
+	if !e || v == "" {
+		log.Fatal("Se requiere el parámetro FILE_SUPER_CAFFE")
+	}
+	if !FileExists(v) {
+		log.Fatal("El archivo configurado en el parámetro FILE_SUPER_CAFFE no existe")
+	}
+
+}
+
+func IsVehicle(qr string) bool {
+	return (len(qr) == 40 && qr[0:3] == "002")
+}
+
+func IsPerson(qr string) bool {
+	return (len(qr) == 40 && qr[0:3] == "001")
+}
+
+func PersonOrVehicle(qr string) string {
+	if len(qr) == 40 {
+		if qr[0:3] == "001" {
+			return _PERSON
+		}
+		if qr[0:3] == "002" {
+			return _VEHICLE
+		}
+	}
+	return _UNKNOWN
+}
+
+func LogError(text string, err error, modeDebug bool) {
+	log.Println(text)
+	if modeDebug {
+		log.Printf("DEBUG: %s\n", err.Error())
 	}
 }

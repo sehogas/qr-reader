@@ -1,67 +1,101 @@
 package util
 
 import (
-	"bytes"
-	"encoding/json"
+	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"time"
 
 	_ "image/jpeg"
 	_ "image/png"
 
-	"github.com/liyue201/goqr"
 	"github.com/sehogas/qr-reader/models"
+	"github.com/sehogas/qr-reader/sigep"
 	"gocv.io/x/gocv"
+	"gocv.io/x/gocv/contrib"
 )
 
 const (
-	_PERSON  = "Person"
-	_VEHICLE = "Vehicle"
-	_OTHER   = "Other"
+	_PERSON  = "PERSONA"
+	_VEHICLE = "VEHICULO"
+	_UNKNOWN = "DESCONOCIDO"
+)
+
+const (
+	_ACCESS_GRANTED = "ACCESS_GRANTED"
+	_ACCESS_DENIED  = "ACCESS_DENIED"
+	_CONTINUE       = "CONTINUE"
+	_ERROR          = "ERROR"
 )
 
 type LectorQR struct {
-	DeviceID       int
-	FromFile       string
-	Repo           *Repository
-	Mode           int
-	ClientID       string
-	Zone           string
-	Event          string
-	PathWavGranted string
-	PathWavDenied  string
+	DeviceID            int
+	FromFile            string
+	Repo                *Repository
+	Mode                int
+	ClientID            string
+	Zone                string
+	Event               string
+	FileWavGranted      string
+	FileWavDenied       string
+	UrlPostAccess       string
+	UrlPostAccessAPIKey string
+	FileImageGranted    string
+	FileImageDenied     string
+	DebugMode           bool
+	FileDetectProtoTxt  string
+	FileDetectCaffe     string
+	FileSuperProtoTxt   string
+	FileSuperCaffe      string
 }
+
+var QRPrev1 string
+var QRPrev2 string
+var QR1 string
+var QR2 string
 
 // func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID, zone, event, pathWavGranted, pathWavDenied string) *LectorQR {
 func NewLectorQR(cfg map[string]string, repo *Repository) *LectorQR {
 	deviceID, _ := strconv.Atoi(cfg["DEVICE_ID"])
 	mode, _ := strconv.Atoi(cfg["MODE"])
 	return &LectorQR{
-		DeviceID:       deviceID,
-		FromFile:       cfg["RTSP"],
-		Repo:           repo,
-		Mode:           mode,
-		ClientID:       cfg["CLIENT_ID"],
-		Zone:           cfg["ZONE_ID"],
-		Event:          cfg["EVENT_ID"],
-		PathWavGranted: cfg["PATH_WAV_GRANTED"],
-		PathWavDenied:  cfg["PATH_WAV_DENIED"],
+		DeviceID:            deviceID,
+		FromFile:            cfg["RTSP"],
+		Repo:                repo,
+		Mode:                mode,
+		ClientID:            cfg["CLIENT_ID"],
+		Zone:                cfg["ZONE_ID"],
+		Event:               cfg["EVENT_ID"],
+		FileWavGranted:      cfg["FILE_WAV_GRANTED"],
+		FileWavDenied:       cfg["FILE_WAV_DENIED"],
+		UrlPostAccess:       cfg["URL_POST_ACCESS"],
+		UrlPostAccessAPIKey: cfg["API_KEY"],
+		FileImageGranted:    cfg["FILE_BACKGROUND_GRANTED"],
+		FileImageDenied:     cfg["FILE_BACKGROUND_DENIED"],
+		DebugMode:           false,
+		FileDetectProtoTxt:  cfg["FILE_DETECT_PROTO_TXT"],
+		FileDetectCaffe:     cfg["FILE_DETECT_CAFFE"],
+		FileSuperProtoTxt:   cfg["FILE_SUPER_PROTO_TXT"],
+		FileSuperCaffe:      cfg["FILE_SUPER_CAFFE"],
 	}
 }
 
 func (s *LectorQR) Start() {
 
-	wavDenied := NewSound(s.PathWavDenied)
+	wavDenied := NewSound(s.FileWavDenied)
 	wavDenied.Play()
-	wavGranted := NewSound(s.PathWavGranted)
+	wavGranted := NewSound(s.FileWavGranted)
 	wavGranted.Play()
+
+	green := gocv.IMRead(s.FileImageGranted, gocv.IMReadColor)
+	defer green.Close()
+
+	red := gocv.IMRead(s.FileImageDenied, gocv.IMReadColor)
+	defer red.Close()
 
 	var camera *gocv.VideoCapture
 	var err error
-	var keyPrev int
-	var key int
+	var key, keyPrev int
 
 	if s.FromFile == "" {
 		camera, err = gocv.VideoCaptureDevice(s.DeviceID)
@@ -77,222 +111,253 @@ func (s *LectorQR) Start() {
 	frame := gocv.NewMat()
 	defer frame.Close()
 
-	//frameGray := gocv.NewMat()
-	//defer frameGray.Close()
+	mats := make([]gocv.Mat, 0)
 
-	//pts := gocv.NewMat()
-	//defer pts.Close()
-
-	//straight_qrcode := gocv.NewMat()
-	//defer straight_qrcode.Close()
-
-	green := gocv.IMRead("./assets/access-granted.png", gocv.IMReadColor)
-	defer green.Close()
-
-	red := gocv.IMRead("./assets/access-denied.png", gocv.IMReadColor)
-	defer red.Close()
+	frameClearBuffer := gocv.NewMat()
+	defer frameClearBuffer.Close()
 
 	window := gocv.NewWindow(s.ClientID)
 	defer window.Close()
 
-	//qrCodeDetector := gocv.NewQRCodeDetector()
-	//defer qrCodeDetector.Close()
+	var done chan bool
 
 	var decoded string
-	var prev1 string
-	var prev2 string
-	var accessGranted bool
+	var decoded2 string
+	// var img image.Image
+	var status string
+	var code1 string
+	var code2 string
+	var QRsCount int
+
 	wait := 1
 
-	log.Println("Reading camera...")
+	detector := contrib.NewWeChatQRCode(s.FileDetectProtoTxt, s.FileDetectCaffe, s.FileSuperProtoTxt, s.FileSuperCaffe)
+
+	log.Println("Leyendo cámara...")
 
 	for {
-		if ok := camera.Read(&frame); !ok {
-			log.Println("Could not read the camera")
+		if !camera.Read(&frame) {
+			log.Println("*** No se pudo leer la cámara ***")
 			break
 		}
-
 		if frame.Empty() {
 			continue
 		}
 
-		//decoded = qrCodeDetector.DetectAndDecode(frame, &pts, &straight_qrcode)
+		//Esta funcion limpia el buffer de la cámara cuando es por rtsp
+		///////////////////////////////////////////////////////////////
+		done = make(chan bool)
+		go func(f gocv.Mat) {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					camera.Read(&f)
+				}
+			}
+		}(frameClearBuffer)
+		////////////////////////////////////////////////////////////////
 
-		//gocv.CvtColor(frame, &frameGray, gocv.ColorBGRToGray)
+		qrCodes := detector.DetectAndDecode(frame, &mats)
+		QRsCount = len(qrCodes)
+		if QRsCount > 0 {
+			decoded = string(qrCodes[0])
+			if QRsCount == 2 {
+				decoded2 = string(qrCodes[1])
+			}
+			if decoded != "" {
+				status, code1, code2 = s.AccessGranted2(&decoded, &decoded2)
+				switch status {
+				case _ACCESS_GRANTED:
+					log.Printf("### ACCESO PERMITIDO ###\n")
+					green.CopyTo(&frame)
+					wavGranted.Play()
+					wait = 2000
+				case _ACCESS_DENIED:
+					log.Printf("### ACCESO DENEGADO ###\n")
+					red.CopyTo(&frame)
+					wavDenied.Play()
+					wait = 2000
+				case _ERROR:
+					break
+				}
+			}
+		}
 
-		img, err := frame.ToImage()
-
-		if err == nil {
-			qrCodes, err := goqr.Recognize(img)
+		/*
+			// decode image
+			img, err = frame.ToImage()
 			if err == nil {
-				if len(qrCodes) == 1 {
-					decoded = string(qrCodes[0].Payload)
-					if decoded != "" {
-						if s.Mode == 1 { //Only person
-							if prev1 != decoded && IsPerson(decoded) {
-								prev1 = decoded
-								log.Printf("Card 1 [%s] is %s \n", prev1, PersonOrVehicle(prev1))
-
-								if accessGranted, _ = s.Repo.ValidCard(prev1); accessGranted {
-
-									access := models.Access{
-										Code1:      prev1,
-										Code2:      "",
-										AccessDate: time.Now(),
-										Zone:       s.Zone,
-										Event:      s.Event,
-									}
-									message := models.AccessZone{
-										ClientID: s.ClientID,
-										Access:   []models.Access{access},
-									}
-
-									if !s.SendToServer(&message) { //Envia al servidor
-										err := s.Repo.InsertAccess(&access) //Sino intento grabar en base de datos local
-										if err != nil {
-											log.Println("Local storage: ", err)
-											break
-										}
-										log.Println("Recorded to local storage: OK")
-									}
-									log.Println("Access granted!")
-									green.CopyTo(&frame)
-									err = wavGranted.Play()
-									if err != nil {
-										log.Println(err)
-									}
-								} else {
-									log.Println("Access denied!")
-									red.CopyTo(&frame)
-									err = wavDenied.Play()
-									if err != nil {
-										log.Println(err)
-									}
-								}
-								accessGranted = false
+				qrCodes, err := goqr.Recognize(img)
+				if err == nil {
+					if len(qrCodes) == 1 {
+						decoded = string(qrCodes[0].Payload)
+						if decoded != "" {
+							status, code1, code2 = s.AccessGranted(&decoded)
+							switch status {
+							case _ACCESS_GRANTED:
+								log.Println("### ACCESO PERMITIDO ###")
+								green.CopyTo(&frame)
+								wavGranted.Play()
 								wait = 2000
-							}
-						}
-
-						if s.Mode == 2 { //Persons + Vehicles
-							if prev1 == "" && prev2 != decoded {
-								prev1 = decoded
-								prev2 = ""
-								log.Printf("Card 1 [%s] is %s\nWaiting for next card...\n", prev1, PersonOrVehicle(prev1))
-							} else {
-								if prev2 == "" && prev1 != decoded && PersonOrVehicle(decoded) != _OTHER && PersonOrVehicle(prev1) != PersonOrVehicle(decoded) {
-									prev2 = decoded
-									log.Printf("Card 2 [%s] is %s\n", prev2, PersonOrVehicle(prev2))
-								}
-							}
-
-							if prev1 != "" && prev2 != "" {
-								accessGranted, _ = s.Repo.ValidCard(prev1)
-								if accessGranted {
-									accessGranted, _ = s.Repo.ValidCard(prev2)
-									if accessGranted {
-										//log.Println("Access granted!")
-										//green.CopyTo(&frame)
-
-										var code1, code2 string
-										if IsPerson(prev1) {
-											code1 = prev1
-											code2 = prev2
-										} else {
-											code1 = prev2
-											code2 = prev1
-										}
-
-										access := models.Access{
-											Code1:      code1,
-											Code2:      code2,
-											AccessDate: time.Now(),
-											Zone:       s.Zone,
-											Event:      s.Event,
-										}
-										message := models.AccessZone{
-											ClientID: s.ClientID,
-											Access:   []models.Access{access},
-										}
-
-										if !s.SendToServer(&message) { //Envia al servidor
-											err := s.Repo.InsertAccess(&access) //Sino intento grabar en base de datos local
-											if err != nil {
-												log.Println("Local storage: ", err)
-												break
-											}
-											log.Println("Recorded to local storage: OK")
-										}
-										log.Println("Access granted!")
-										green.CopyTo(&frame)
-										// wavGranted.Play()
-									} else {
-										log.Println("Access denied!")
-										red.CopyTo(&frame)
-										// wavDenied.Play()
-									}
-								} else {
-									log.Println("Access denied!")
-									red.CopyTo(&frame)
-									// wavDenied.Play()
-								}
-								prev1 = ""
-								accessGranted = false
+							case _ACCESS_DENIED:
+								log.Println("### ACCESO DENEGADO ###")
+								red.CopyTo(&frame)
+								wavDenied.Play()
 								wait = 2000
+							case _ERROR:
+								break
 							}
 						}
 					}
 				}
 			}
-		}
-
+		*/
 		window.IMShow(frame)
+		if status == _ACCESS_GRANTED {
+			s.SaveAccessGranted(code1, code2)
+			status = _CONTINUE
+		}
 		key = window.WaitKey(wait)
+		done <- true
 		if key == 27 {
-			if key == 27 && key == keyPrev {
+			//Esc
+			if key == keyPrev {
 				break
 			}
 		}
 		keyPrev = key
+		switch key {
+		case 100:
+			//DebugMode
+			s.DebugMode = !s.DebugMode
+			log.Printf("DEBUG MODE: %v\n", s.DebugMode)
+		}
+		if key != -1 {
+			fmt.Println(key)
+		}
+
 		wait = 1
 	}
-	log.Println("Close camera")
+	log.Println("Cámara cerrada")
 }
 
-func IsVehicle(qr string) bool {
-	return (len(qr) == 40 && qr[0:3] == "002")
-}
+func (s *LectorQR) SaveAccessGranted(code1, code2 string) {
 
-func IsPerson(qr string) bool {
-	return (len(qr) == 40 && qr[0:3] == "001")
-}
+	access := models.Access{
+		UUID:       s.Repo.NewUUID(),
+		Code1:      code1,
+		Code2:      code2,
+		AccessDate: time.Now(),
+		Zone:       s.Zone,
+		Event:      s.Event,
+	}
 
-func PersonOrVehicle(qr string) string {
-	if len(qr) == 40 {
-		if qr[0:3] == "001" {
-			return _PERSON
+	go func(url, APIKey string, access *models.Access) {
+		dataAccess, err := sigep.SendToServer(url, s.UrlPostAccessAPIKey, *access)
+		if err != nil {
+			LogError("*** Error enviando movimiento al servidor ***", err, s.DebugMode)
+
+			err := s.Repo.InsertAccess(access)
+			if err != nil {
+				LogError("Amacenamiento local: ERROR", err, s.DebugMode)
+			}
+			log.Println("Almacenamiento en local: OK")
+		} else {
+			sigep.PrintData(dataAccess)
 		}
-		if qr[0:3] == "002" {
-			return _VEHICLE
-		}
-	}
-	return "Other"
+	}(s.UrlPostAccess, s.UrlPostAccessAPIKey, &access)
 }
 
-func (s *LectorQR) SendToServer(message *models.AccessZone) bool {
-	body, err := json.Marshal(message)
-	if err != nil {
-		log.Println(err)
-		return false
+func (s *LectorQR) AccessGranted2(decoded *string, decoded2 *string) (status, code1, code2 string) {
+
+	if s.Mode == 1 { //Only person
+		if *decoded != QRPrev1 && IsPerson(*decoded) {
+			QRPrev1 = *decoded
+			log.Printf("QR [%s] es %s\n", *decoded, PersonOrVehicle(*decoded))
+			if Ok, _ := s.Repo.ValidCard(QRPrev1); Ok {
+				return _ACCESS_GRANTED, QRPrev1, ""
+			} else {
+				return _ACCESS_DENIED, QRPrev1, ""
+			}
+		} else {
+			return _CONTINUE, "", ""
+		}
 	}
-	res, err := http.Post("https://backend.dpp.gob.ar/api/v1/prueba", "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Println(err)
-		return false
+
+	if s.Mode == 2 { //Persons + Vehicles
+		/*
+			if QRPrev1 == "" && QRPrev2 != *decoded && PersonOrVehicle(QRPrev1) != _UNKNOWN {
+				QRPrev1 = *decoded
+				QRPrev2 = ""
+				log.Printf("QR #1 [%s] es %s\nEsperando próxima tarjeta...\n", *decoded, PersonOrVehicle(*decoded))
+			} else {
+				if QRPrev2 == "" && QRPrev1 != *decoded && PersonOrVehicle(*decoded) != _UNKNOWN && PersonOrVehicle(QRPrev1) != PersonOrVehicle(*decoded) {
+					QRPrev2 = *decoded
+					log.Printf("QR #2 [%s] es %s\n", *decoded, PersonOrVehicle(*decoded))
+				}
+			}
+			if QRPrev1 != "" && QRPrev2 != "" {
+				accessGranted, _ := s.Repo.ValidCard(QRPrev1)
+				if accessGranted {
+					accessGranted, _ = s.Repo.ValidCard(QRPrev2)
+					if accessGranted {
+						var code1, code2 string
+						if IsPerson(QRPrev1) {
+							code1 = QRPrev1
+							code2 = QRPrev2
+						} else {
+							code1 = QRPrev2
+							code2 = QRPrev1
+						}
+						QRPrev1 = ""
+						return _ACCESS_GRANTED, code1, code2
+					} else {
+						QRPrev1 = ""
+						return _ACCESS_DENIED, "", ""
+					}
+				} else {
+					QRPrev1 = ""
+					return _ACCESS_DENIED, "", ""
+				}
+			}
+		*/
+
+		if (*decoded == QRPrev1 && *decoded2 == QRPrev2) || (*decoded == QRPrev2 && *decoded2 == QRPrev1) || (*decoded == *decoded2) || (*decoded2 == "") {
+			return _CONTINUE, *decoded, *decoded2
+		}
+		QRPrev1 = *decoded
+		QRPrev2 = *decoded2
+
+		log.Printf("QR1 [%s] es %s, QR2 [%s] es %s\n", *decoded, PersonOrVehicle(*decoded), *decoded2, PersonOrVehicle(*decoded2))
+		if (PersonOrVehicle(*decoded) == _PERSON && PersonOrVehicle(*decoded2) == _VEHICLE) || (PersonOrVehicle(*decoded) == _VEHICLE && PersonOrVehicle(*decoded2) == _PERSON) {
+			accessGranted, _ := s.Repo.ValidCard(*decoded)
+			if accessGranted {
+				accessGranted, _ = s.Repo.ValidCard(*decoded2)
+				if accessGranted {
+					if IsPerson(QRPrev1) {
+						code1 = QRPrev1
+						code2 = QRPrev2
+					} else {
+						code1 = QRPrev2
+						code2 = QRPrev1
+					}
+					return _ACCESS_GRANTED, code1, code2
+				} else {
+					QRPrev1 = ""
+					QRPrev2 = ""
+					return _ACCESS_DENIED, "", ""
+				}
+			} else {
+				QRPrev1 = ""
+				QRPrev2 = ""
+				return _ACCESS_DENIED, "", ""
+			}
+		} else {
+			return _ACCESS_DENIED, "", ""
+		}
 	}
-	if !(res.StatusCode == 200 || res.StatusCode == 201) {
-		log.Println("SendToServer() error:", http.StatusText(res.StatusCode))
-		return false
-	}
-	return true
+	log.Println("Modo inválido!")
+	return _ERROR, "", ""
 }

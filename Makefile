@@ -10,7 +10,7 @@ GOEXE=".exe"
 NETWORK=sigep-network
 ########################################################
 
-run: sets run_cam4
+run: sets run_cam5
 
 sets:
 	SET CC=x86_64-w64-mingw32-gcc
@@ -34,6 +34,9 @@ run_cam3:
 
 run_cam4:
 	go run main.go run --file cam4_aq_i_x2.env.encrypted
+
+run_cam5:
+	go run main.go run --file hikvision.env.encrypted
 
 encrypt1:
 	@echo Ejecutando programa...
@@ -68,7 +71,12 @@ encrypt3: sets runencrypt3
 runencrypt4: 
 	go run main.go encrypt --file cam4_aq_i_x2.env
 
+runencrypt5: 
+	go run main.go encrypt --file hikvision.env
+
 encrypt4: sets runencrypt4
+
+encrypt5: sets runencrypt5
 
 
 bin:

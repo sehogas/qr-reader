@@ -14,7 +14,7 @@ import (
 
 func SendToServerBulk(url string, apiKey string, accessBulk models.AccessBulk) error {
 
-	client := &http.Client{Timeout: time.Second * 5}
+	client := &http.Client{Timeout: time.Second * 30}
 
 	bodyReq, err := json.Marshal(accessBulk)
 	if err != nil {
@@ -44,7 +44,7 @@ func SendToServerBulk(url string, apiKey string, accessBulk models.AccessBulk) e
 func SendToServer(url string, apiKey string, access models.Access) (models.AccessDataResponse, error) {
 	var accessData models.AccessDataResponse
 
-	client := &http.Client{Timeout: time.Second * 3}
+	client := &http.Client{Timeout: time.Second * 15}
 
 	bodyReq, err := json.Marshal(access)
 	if err != nil {
@@ -91,7 +91,7 @@ func GetCardsFromServer(url string, apiKey string, fecDesde time.Time, anulados 
 		iAnulados = 0
 	}
 
-	client := &http.Client{Timeout: time.Second * 5}
+	client := &http.Client{Timeout: time.Second * 30}
 
 	req := fmt.Sprintf("%s/%s/%d", url, fecDesde.Format("20060102150405"), iAnulados)
 	request, err := http.NewRequest(http.MethodGet, req, nil)

@@ -10,7 +10,7 @@ GOEXE=".exe"
 NETWORK=sigep-network
 ########################################################
 
-run: sets run_cam5
+run: sets run_cam6
 
 sets:
 	SET CC=x86_64-w64-mingw32-gcc
@@ -37,6 +37,9 @@ run_cam4:
 
 run_cam5:
 	go run main.go run --file hikvision.env.encrypted
+
+run_cam6:
+	go run main.go run --file cam6_aq_i_x2.env.encrypted
 
 encrypt1:
 	@echo Ejecutando programa...
@@ -74,10 +77,14 @@ runencrypt4:
 runencrypt5: 
 	go run main.go encrypt --file hikvision.env
 
+runencrypt6: 
+	go run main.go encrypt --file cam6_aq_i_x2.env
+
 encrypt4: sets runencrypt4
 
 encrypt5: sets runencrypt5
 
+encrypt6: sets runencrypt6
 
 bin:
 	@echo Generando binario ... (en windows con poweshell)

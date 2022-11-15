@@ -182,41 +182,14 @@ func (s *LectorQR) Start() {
 					red.CopyTo(&frame)
 					wavDenied.Play()
 					wait = 2000
+				case _CONTINUE:
+					decoded2 = ""
 				case _ERROR:
 					break
 				}
 			}
 		}
 
-		/*
-			// decode image
-			img, err = frame.ToImage()
-			if err == nil {
-				qrCodes, err := goqr.Recognize(img)
-				if err == nil {
-					if len(qrCodes) == 1 {
-						decoded = string(qrCodes[0].Payload)
-						if decoded != "" {
-							status, code1, code2 = s.AccessGranted(&decoded)
-							switch status {
-							case _ACCESS_GRANTED:
-								log.Println("### ACCESO PERMITIDO ###")
-								green.CopyTo(&frame)
-								wavGranted.Play()
-								wait = 2000
-							case _ACCESS_DENIED:
-								log.Println("### ACCESO DENEGADO ###")
-								red.CopyTo(&frame)
-								wavDenied.Play()
-								wait = 2000
-							case _ERROR:
-								break
-							}
-						}
-					}
-				}
-			}
-		*/
 		window.IMShow(frame)
 		if status == _ACCESS_GRANTED {
 			s.SaveAccessGranted(code1, code2)
@@ -290,43 +263,6 @@ func (s *LectorQR) AccessGranted2(decoded *string, decoded2 *string) (status, co
 	}
 
 	if s.Mode == 2 { //Persons + Vehicles
-		/*
-			if QRPrev1 == "" && QRPrev2 != *decoded && PersonOrVehicle(QRPrev1) != _UNKNOWN {
-				QRPrev1 = *decoded
-				QRPrev2 = ""
-				log.Printf("QR #1 [%s] es %s\nEsperando próxima tarjeta...\n", *decoded, PersonOrVehicle(*decoded))
-			} else {
-				if QRPrev2 == "" && QRPrev1 != *decoded && PersonOrVehicle(*decoded) != _UNKNOWN && PersonOrVehicle(QRPrev1) != PersonOrVehicle(*decoded) {
-					QRPrev2 = *decoded
-					log.Printf("QR #2 [%s] es %s\n", *decoded, PersonOrVehicle(*decoded))
-				}
-			}
-			if QRPrev1 != "" && QRPrev2 != "" {
-				accessGranted, _ := s.Repo.ValidCard(QRPrev1)
-				if accessGranted {
-					accessGranted, _ = s.Repo.ValidCard(QRPrev2)
-					if accessGranted {
-						var code1, code2 string
-						if IsPerson(QRPrev1) {
-							code1 = QRPrev1
-							code2 = QRPrev2
-						} else {
-							code1 = QRPrev2
-							code2 = QRPrev1
-						}
-						QRPrev1 = ""
-						return _ACCESS_GRANTED, code1, code2
-					} else {
-						QRPrev1 = ""
-						return _ACCESS_DENIED, "", ""
-					}
-				} else {
-					QRPrev1 = ""
-					return _ACCESS_DENIED, "", ""
-				}
-			}
-		*/
-
 		if (*decoded == QRPrev1 && *decoded2 == QRPrev2) || (*decoded == QRPrev2 && *decoded2 == QRPrev1) || (*decoded == *decoded2) || (*decoded2 == "") {
 			return _CONTINUE, *decoded, *decoded2
 		}

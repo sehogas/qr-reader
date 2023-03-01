@@ -71,7 +71,8 @@ func main() {
 
 		repo := util.NewRepository("sqlite3", cfg["DB"])
 		defer repo.Db.Close()
-		if totalCards, _ := repo.TotalCards(); totalCards == 0 {
+
+		if totalCards, _ := repo.TotalCards(); totalCards >= 0 {
 			fnSync(time.Now().Local(), cfg, repo)
 		} else {
 			log.Printf("Total de tarjetas locales: %d \n", totalCards)

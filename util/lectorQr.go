@@ -170,7 +170,9 @@ func (s *LectorQR) Start() {
 				decoded2 = string(qrCodes[1])
 			}
 			if decoded != "" {
+				//log.Printf("decoded: %s, decoded2: %s\n", decoded, decoded2)
 				status, code1, code2 = s.AccessGranted2(&decoded, &decoded2)
+				//log.Printf("status: %s, code1: %s, code2: %s\n", status, code1, code2)
 				switch status {
 				case _ACCESS_GRANTED:
 					log.Printf("### ACCESO PERMITIDO ###\n")
@@ -183,10 +185,11 @@ func (s *LectorQR) Start() {
 					wavDenied.Play()
 					wait = 2000
 				case _CONTINUE:
-					decoded2 = ""
 				case _ERROR:
 					break
 				}
+				decoded = ""
+				decoded2 = ""
 			}
 		}
 
@@ -195,6 +198,8 @@ func (s *LectorQR) Start() {
 			s.SaveAccessGranted(code1, code2)
 			status = _CONTINUE
 		}
+		code1 = ""
+		code2 = ""
 		key = window.WaitKey(wait)
 		done <- true
 		if key == 27 {

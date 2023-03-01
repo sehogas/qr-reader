@@ -1,27 +1,22 @@
 ########################################################
 override TARGET=qr-reader
 VERSION=1.0
-OS=windows
-ARCH=amd64
-FLAGS="-s -w"
-CGO=1
-CGO_LDFLAGS=-static -s
-GOEXE=".exe"
+CC=x86_64-w64-mingw32-gcc
+AR=x86_64-w64-mingw32-gcc-ar
+CGO_ENABLED=1
+CGO_LDFLAGS='-static -s'
+CGO_CXXFLAGS='-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic'
+GOEXE=.exe
+GOOS=windows
+GOARCH=amd64
 NETWORK=sigep-network
+FLAGS='-s -w'
 ########################################################
 
-run: sets run_cam6
+run: run_cam1
 
-sets:
-	SET CC=x86_64-w64-mingw32-gcc
-	SET AR=x86_64-w64-mingw32-ar
-	SET CGO_ENABLED=$(CGO) 
-	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
-	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
-	SET GOEXE=$(GOEXE)
-	SET GOOS=$(OS) 
-	SET GOARCH=$(ARCH) 
-
+run_cam1_prod:
+	go run main.go run --file prod.env.encrypted
 
 run_cam1:
 	go run main.go run --file cam1_aq_i.env.encrypted
@@ -43,28 +38,11 @@ run_cam6:
 
 encrypt1:
 	@echo Ejecutando programa...
-	SET CC=x86_64-w64-mingw32-gcc
-	SET AR=x86_64-w64-mingw32-ar
-	SET CGO_ENABLED=$(CGO) 
-	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
-	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
-	SET GOEXE=$(GOEXE)
-	SET GOOS=$(OS) 
-	SET GOARCH=$(ARCH) 
 	go run main.go encrypt --file cam1_aq_i.env
 
 encrypt2:
 	@echo Ejecutando programa...
-	SET CC=x86_64-w64-mingw32-gcc
-	SET AR=x86_64-w64-mingw32-ar
-	SET CGO_ENABLED=$(CGO) 
-	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
-	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
-	SET GOEXE=$(GOEXE)
-	SET GOOS=$(OS) 
-	SET GOARCH=$(ARCH) 
 	go run main.go encrypt --file cam2_aq_s.env
-
 
 runencrypt3: 
 	go run main.go encrypt --file cam3_ap_i.env
@@ -74,44 +52,39 @@ encrypt3: sets runencrypt3
 runencrypt4: 
 	go run main.go encrypt --file cam4_aq_i_x2.env
 
+encrypt4: sets runencrypt4
+
 runencrypt5: 
 	go run main.go encrypt --file hikvision.env
+
+encrypt5: sets runencrypt5
 
 runencrypt6: 
 	go run main.go encrypt --file cam6_aq_i_x2.env
 
-encrypt4: sets runencrypt4
-
-encrypt5: sets runencrypt5
 
 encrypt6: sets runencrypt6
 
-bin:
-	@echo Generando binario ... (en windows con poweshell)
-	SET CC=x86_64-w64-mingw32-gcc
-	SET AR=x86_64-w64-mingw32-ar
-	SET CGO_ENABLED=$(CGO) 
-	SET CGO_LDFLAGS=$(CGO_LDFLAGS)
-	SET CGO_CXXFLAGS=-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
-	SET GOEXE=$(GOEXE)
-	SET GOOS=$(OS) 
-	SET GOARCH=$(ARCH) 
+runbin:
+	@echo Generando binario ... en windows con poweshell
 	go build -v -x -ldflags=$(FLAGS)  .
 
+bin: sets runbin
+
 exec1:
-	@echo Ejecutando modo 1 QR ... (en windows con poweshell)
+	@echo Ejecutando modo 1 QR ... [en windows con poweshell]
 	./qr-reader run --file=cam1_aq_i.env.encrypted
 
 exec2:
-	@echo Ejecutando modo 2 QR ... (en windows con poweshell)
+	@echo Ejecutando modo 2 QR ... [en windows con poweshell]
 	./qr-reader run --file=cam2_aq_s.env.encrypted
 
 exec3:
-	@echo Ejecutando modo 1 QR ... (en windows con poweshell)
+	@echo Ejecutando modo 1 QR ... [en windows con poweshell]
 	./qr-reader run --file=cam3_ap_i.env.encrypted
 
 install: 
-	@echo Instalando binario ... (en windows con poweshell)
+	@echo Instalando binario ... [en windows con poweshell]
 	@echo CGO_ENABLED=$(CGO) GOOS=$(OS) GOARCH=$(ARCH)  go install -ldflags=$(FLAGS) 
 	@go install -tags sqlite_userauth -ldflags=$(FLAGS)
 	SET CGO_ENABLED=$(CGO) 

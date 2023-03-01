@@ -1,5 +1,4 @@
 *.db
-*.env
 *.encrypted
-
+prod.env
 qr-reader.exe

@@ -147,8 +147,8 @@ func (s *LectorQR) Start() {
 			continue
 		}
 
-		//Esta funcion limpia el buffer de la cámara cuando es por rtsp
-		///////////////////////////////////////////////////////////////
+		//Esta rutina limpia el buffer de la cámara cuando es por rtsp
+		//////////////////////////////////////////////////////////////
 		done = make(chan bool)
 		go func(f gocv.Mat) {
 			for {
@@ -160,7 +160,7 @@ func (s *LectorQR) Start() {
 				}
 			}
 		}(frameClearBuffer)
-		////////////////////////////////////////////////////////////////
+		///////////////////////////////////////////////////////////////
 
 		qrCodes := detector.DetectAndDecode(frame, &mats)
 		QRsCount = len(qrCodes)

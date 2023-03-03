@@ -9,7 +9,7 @@ COPY . /go/src/gocv.io/x/gocv/
 WORKDIR /go/src/gocv.io/x/gocv
 
 
-#ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 RUN go build -o /build/qr-reader .
 
 CMD ["/build/qr_reader"]

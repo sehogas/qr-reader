@@ -96,6 +96,7 @@ func main() {
 	log.Println("Fin del programa")
 }
 
+// Esta función llama a sincronización cada cierto tiempo
 func inBackground(cfg map[string]string, repo *util.Repository, f func(t time.Time, cfg map[string]string, repo *util.Repository)) {
 	for {
 		select {
@@ -107,6 +108,7 @@ func inBackground(cfg map[string]string, repo *util.Repository, f func(t time.Ti
 	}
 }
 
+// Esta función sincroniza las tarjetas y los movimientos pendientes con el servidor
 func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	var totalAccessSync int

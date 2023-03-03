@@ -94,22 +94,24 @@ install:
 	@go install -ldflags=$(FLAGS)
 
 build:
-	@echo Construyendo imagen docker $(TARGET):$(VERSION) ...
+	@echo Construyendo imagen docker...
 	docker build -t $(TARGET):$(VERSION) .
 	docker tag $(TARGET):$(VERSION) $(TARGET):latest
 
 start:
-	@echo Ejecutando contenedor docker $(TARGET):$(VERSION) ...
+	@echo Ejecutando contenedor docker...
 	docker run --rm -d --name $(TARGET) -p 3000:3000 $(TARGET):latest
 
 start_with_network:
-	@echo Ejecutando contenedor docker $(TARGET):$(VERSION) ...
+	@echo Ejecutando contenedor docker con network...
 	docker run --rm -d --name $(TARGET) --network $(NETWORK) -p 3000:3000 $(TARGET):latest
 
 stop:
+	@echo Parando contenedor docker...
 	docker stop $(TARGET)
 
 createnetwork:
+	@echo Creando red docker...
 	docker network create -d bridge $(NETWORK)
 
 #swagger:

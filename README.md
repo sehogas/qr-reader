@@ -1,6 +1,6 @@
 # QR READER
 
-Este proyecto lee QR desde cualquier cámara web, o cámara IP por RTSP. 
+Este proyecto es un sistema autómata por línea de comando que lee QRs desde cualquier cámara web, o cámara IP por RTSP, validando que exista y sea valido en su base de datos local. Además, sincroniza cada cierto tiempo sus que información local contra un backend. 
 
 ### Requerimientos previos
 
@@ -8,8 +8,8 @@ Este proyecto lee QR desde cualquier cámara web, o cámara IP por RTSP.
 * Instalar make con: choco install make ()
 * Instalar cmake version 3.24.2
 * Instalar mingw-w64: Buscar (https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/seh/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z)
-* Instalar gocv, descargar fuentes y compilar.  
-* zbar (depende)
+* Instalar gocv, descargar fuentes y compilar
+* Requiere un 
 
 ### Instrucciones de instalación GOCV:
 
@@ -19,19 +19,8 @@ Este proyecto lee QR desde cualquier cámara web, o cámara IP por RTSP.
 
 [Windows](https://gocv.io/getting-started/windows/)
 
-### Instrucciones de instalación ZBAR:
 
-[Linux](http://zbar.sourceforge.net/download.html)
-
-[MacOs](http://macappstore.org/zbar/)
-
-[Windows](http://zbar.sourceforge.net/download.html)
-
-```bash
-go get github.com/bieber/barcode
-```
-
-Para comenzar, puedes clonar este reposito:
+Para comenzar, puedes clonar este repositorio:
 ```bash
 git clone https://github.com/sehogas/qr-reader.git qr-reader
 cd qr-reader

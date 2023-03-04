@@ -387,6 +387,34 @@ func (r *Repository) InsertAccess(item *models.Access) error {
 	return nil
 }
 
+func (r *Repository) InfoCard(code string) (*models.Card, error) {
+	sql := `
+	SELECT *
+	FROM Cards
+	WHERE Code = ?
+	`
+	stmt, err := r.Db.Prepare(sql)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := r.Db.Query(sql, code)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var card models.Card
+	if rows.Next() {
+		err = rows.Scan(&card.Code, &card.DateFrom, &card.DateTo, &card.Enabled, &card.Photo, &card.Deleted)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &card, nil
+}
+
 /*
 func TestCards() []models.Card {
 	return []models.Card{

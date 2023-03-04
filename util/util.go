@@ -52,14 +52,9 @@ func CheckConfig(m map[string]string) {
 		log.Fatal("El parámetro MODE es inválido")
 	}
 
-	v, e = m["URL_GET_CARDS"]
+	v, e = m["URL_BACKEND"]
 	if !e || v == "" {
-		log.Fatal("Se requiere el parámetro URL_GET_CARDS")
-	}
-
-	v, e = m["URL_POST_ACCESS"]
-	if !e || v == "" {
-		log.Fatal("Se requiere el parámetro URL_POST_ACCESS")
+		log.Fatal("Se requiere el parámetro URL_BACKEND")
 	}
 
 	v, e = m["API_KEY"]
@@ -96,22 +91,6 @@ func CheckConfig(m map[string]string) {
 	}
 	if !FileExists(v) {
 		log.Fatal("El archivo configurado en el parámetro FILE_WAV_DENIED no existe")
-	}
-
-	v, e = m["FILE_BACKGROUND_GRANTED"]
-	if !e || v == "" {
-		log.Fatal("Se requiere el parámetro FILE_BACKGROUND_GRANTED")
-	}
-	if !FileExists(v) {
-		log.Fatal("El archivo configurado en el parámetro FILE_BACKGROUND_GRANTED no existe")
-	}
-
-	v, e = m["FILE_BACKGROUND_DENIED"]
-	if !e || v == "" {
-		log.Fatal("Se requiere el parámetro FILE_BACKGROUND_DENIED")
-	}
-	if !FileExists(v) {
-		log.Fatal("El archivo configurado en el parámetro FILE_BACKGROUND_DENIED no existe")
 	}
 
 	v, e = m["FILE_DETECT_PROTO_TXT"]

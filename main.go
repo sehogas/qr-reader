@@ -1,14 +1,16 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/sehogas/qr-reader/backend"
 	"github.com/sehogas/qr-reader/models"
-	"github.com/sehogas/qr-reader/sigep"
 	"github.com/sehogas/qr-reader/util"
 )
 
@@ -69,6 +71,14 @@ func main() {
 		}
 		util.CheckConfig(cfg)
 
+		tmpDir := fmt.Sprintf("%s\\qr-reader", os.TempDir())
+		if _, err := os.Stat(tmpDir); errors.Is(err, os.ErrNotExist) {
+			err := os.Mkdir(tmpDir, os.ModePerm)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+
 		repo := util.NewRepository("sqlite3", cfg["DB"])
 		defer repo.Db.Close()
 
@@ -87,7 +97,7 @@ func main() {
 		done = make(chan bool)
 		go inBackground(cfg, repo, fnSync)
 
-		lectorQR := util.NewLectorQR(cfg, repo)
+		lectorQR := util.NewLectorQR(cfg, repo, tmpDir)
 		lectorQR.Start()
 
 		ticker.Stop()
@@ -116,7 +126,7 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	consultarAnulados := !repo.Config.LastUpdateCards.Equal(time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC))
 
-	cards, syncTime, err := sigep.GetCardsFromServer(cfg["URL_GET_CARDS"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
+	cards, syncTime, err := backend.GetCardsFromServer(cfg["URL_BACKEND"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
 	if err != nil {
 		log.Println("*** Error consultando servidor para sincronizar tarjetas ***")
 		status = "ERROR"
@@ -138,7 +148,7 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 		if totalAccessSync > 0 {
 			var bOk bool = true
 
-			err := sigep.SendToServerBulk(cfg["URL_POST_BULK_ACCESS"], cfg["API_KEY"], models.AccessBulk{SyncDate: tSync, ClientID: cfg["CLIENT_ID"], Access: access})
+			err := backend.SendToServerBulk(cfg["URL_BACKEND"], cfg["API_KEY"], models.AccessBulk{SyncDate: tSync, ClientID: cfg["CLIENT_ID"], Access: access})
 			if err != nil {
 				bOk = false
 				totalAccessSync = 0

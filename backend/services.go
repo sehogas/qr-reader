@@ -1,4 +1,4 @@
-package sigep
+package backend
 
 import (
 	"bytes"
@@ -12,7 +12,63 @@ import (
 	"github.com/sehogas/qr-reader/models"
 )
 
-func SendToServerBulk(url string, apiKey string, accessBulk models.AccessBulk) error {
+func GetPhotoPerson(url_backend, apiKey, filename string) ([]byte, error) {
+
+	client := &http.Client{Timeout: time.Second * 10}
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/imaper/%s", url_backend, filename), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("x-api-key", apiKey)
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("[%d] %s", res.StatusCode, http.StatusText(res.StatusCode))
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func GetPhotoVehicule(url_backend, apiKey, filename string) ([]byte, error) {
+
+	client := &http.Client{Timeout: time.Second * 10}
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/imaveh/%s", url_backend, filename), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("x-api-key", apiKey)
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("[%d] %s", res.StatusCode, http.StatusText(res.StatusCode))
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func SendToServerBulk(url_backend string, apiKey string, accessBulk models.AccessBulk) error {
 
 	client := &http.Client{Timeout: time.Second * 30}
 
@@ -21,7 +77,7 @@ func SendToServerBulk(url string, apiKey string, accessBulk models.AccessBulk) e
 		return err
 	}
 
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyReq))
+	request, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/terminal/access2", url_backend), bytes.NewBuffer(bodyReq))
 	if err != nil {
 		return err
 	}
@@ -41,7 +97,7 @@ func SendToServerBulk(url string, apiKey string, accessBulk models.AccessBulk) e
 	return nil
 }
 
-func SendToServer(url string, apiKey string, access models.Access) (models.AccessDataResponse, error) {
+func SendToServer(url_backend string, apiKey string, access models.Access) (models.AccessDataResponse, error) {
 	var accessData models.AccessDataResponse
 
 	client := &http.Client{Timeout: time.Second * 15}
@@ -51,7 +107,7 @@ func SendToServer(url string, apiKey string, access models.Access) (models.Acces
 		return accessData, err
 	}
 
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyReq))
+	request, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/terminal/access", url_backend), bytes.NewBuffer(bodyReq))
 	if err != nil {
 		return accessData, err
 	}
@@ -80,7 +136,7 @@ func SendToServer(url string, apiKey string, access models.Access) (models.Acces
 	return accessData, nil
 }
 
-func GetCardsFromServer(url string, apiKey string, fecDesde time.Time, anulados bool) ([]models.Card, time.Time, error) {
+func GetCardsFromServer(url_backend string, apiKey string, fecDesde time.Time, anulados bool) ([]models.Card, time.Time, error) {
 	var cards []models.Card
 	var syncTime time.Time = time.Now()
 	var iAnulados int8
@@ -93,7 +149,7 @@ func GetCardsFromServer(url string, apiKey string, fecDesde time.Time, anulados 
 
 	client := &http.Client{Timeout: time.Second * 30}
 
-	req := fmt.Sprintf("%s/%s/%d", url, fecDesde.Format("20060102150405"), iAnulados)
+	req := fmt.Sprintf("%s/terminal/qrs/%s/%d", url_backend, fecDesde.Format("20060102150405"), iAnulados)
 	request, err := http.NewRequest(http.MethodGet, req, nil)
 	if err != nil {
 		return cards, syncTime, err

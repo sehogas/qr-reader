@@ -15,17 +15,14 @@ FLAGS='-s -w'
 
 run: run_cam1
 
-run_cam1_prod:
-	go run main.go run --file prod.env.encrypted
-
 run_cam1:
-	go run main.go run --file cam1_aq_i.env.encrypted
+	go run main.go run --file cam1_aq_i_x1.env.encrypted
 
 run_cam2:
-	go run main.go run --file cam2_aq_s.env.encrypted
+	go run main.go run --file cam2_aq_s_x1.env.encrypted
 
 run_cam3:
-	go run main.go run --file cam3_ap_i.env.encrypted
+	go run main.go run --file cam3_ap_i_x1.env.encrypted
 
 run_cam4:
 	go run main.go run --file cam4_aq_i_x2.env.encrypted
@@ -38,14 +35,14 @@ run_cam6:
 
 encrypt1:
 	@echo Ejecutando programa...
-	go run main.go encrypt --file cam1_aq_i.env
+	go run main.go encrypt --file cam1_aq_i_x1.env
 
 encrypt2:
 	@echo Ejecutando programa...
-	go run main.go encrypt --file cam2_aq_s.env
+	go run main.go encrypt --file cam2_aq_s_x1.env
 
 runencrypt3: 
-	go run main.go encrypt --file cam3_ap_i.env
+	go run main.go encrypt --file cam3_ap_i_x1.env
 
 encrypt3: sets runencrypt3
 

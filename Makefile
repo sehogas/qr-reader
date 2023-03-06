@@ -13,75 +13,77 @@ NETWORK=sigep-network
 FLAGS='-s -w'
 ########################################################
 
-run: run_cam1
+run: cam1
 
-run_cam1:
+cam1:
 	go run main.go run --file cam1_aq_i_x1.env.encrypted
 
-run_cam2:
+cam2:
 	go run main.go run --file cam2_aq_s_x1.env.encrypted
 
-run_cam3:
+cam3:
 	go run main.go run --file cam3_ap_i_x1.env.encrypted
 
-run_cam4:
+cam4:
 	go run main.go run --file cam4_aq_i_x2.env.encrypted
 
-run_cam5:
+cam5:
 	go run main.go run --file hikvision.env.encrypted
 
-run_cam6:
+cam6:
 	go run main.go run --file cam6_aq_i_x2.env.encrypted
 
+cam7:
+	go run main.go run --file cam7_os_i_x1.env.encrypted
+
+
 encrypt1:
-	@echo Ejecutando programa...
 	go run main.go encrypt --file cam1_aq_i_x1.env
 
 encrypt2:
-	@echo Ejecutando programa...
 	go run main.go encrypt --file cam2_aq_s_x1.env
 
-runencrypt3: 
+encrypt3: 
 	go run main.go encrypt --file cam3_ap_i_x1.env
 
-encrypt3: sets runencrypt3
-
-runencrypt4: 
+encrypt4: 
 	go run main.go encrypt --file cam4_aq_i_x2.env
 
-encrypt4: sets runencrypt4
-
-runencrypt5: 
+encrypt5: 
 	go run main.go encrypt --file hikvision.env
 
-encrypt5: sets runencrypt5
-
-runencrypt6: 
+encrypt6: 
 	go run main.go encrypt --file cam6_aq_i_x2.env
 
+encrypt7: 
+	go run main.go encrypt --file cam7_os_i_x1.env
 
-encrypt6: sets runencrypt6
-
-runbin:
-	@echo Generando binario ... en windows con poweshell
+bin:
+	@echo Generando binario... 
 	go build -v -x -ldflags=$(FLAGS)  .
 
-bin: sets runbin
-
 exec1:
-	@echo Ejecutando modo 1 QR ... [en windows con poweshell]
-	./qr-reader run --file=cam1_aq_i.env.encrypted
+	@echo Ejecutando modo 1 QR...
+	./qr-reader run --file=cam1_aq_i_x1.env.encrypted
 
 exec2:
-	@echo Ejecutando modo 2 QR ... [en windows con poweshell]
-	./qr-reader run --file=cam2_aq_s.env.encrypted
+	@echo Ejecutando modo 2 QR...
+	./qr-reader run --file=cam2_aq_s_x1.env.encrypted
 
 exec3:
-	@echo Ejecutando modo 1 QR ... [en windows con poweshell]
-	./qr-reader run --file=cam3_ap_i.env.encrypted
+	@echo Ejecutando modo 1 QR...
+	./qr-reader run --file=cam3_ap_i_x1.env.encrypted
+
+exec4:
+	@echo Ejecutando modo 2 QR...
+	./qr-reader run --file=cam4_aq_i_x2.env.encrypted
+
+exec7:
+	@echo Ejecutando OFICINA SEGURIDAD modo 1 QR...
+	./qr-reader run --file=cam7_os_i_x1.env.encrypted
 
 install: 
-	@echo Instalando binario ... [en windows con poweshell]
+	@echo Instalando binario...
 	@echo CGO_ENABLED=$(CGO) GOOS=$(OS) GOARCH=$(ARCH)  go install -ldflags=$(FLAGS) 
 	@go install -tags sqlite_userauth -ldflags=$(FLAGS)
 	SET CGO_ENABLED=$(CGO) 

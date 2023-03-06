@@ -1,6 +1,11 @@
 package util
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/jpeg"
 	"log"
 	"os"
 )
@@ -14,7 +19,6 @@ func FileExists(filename string) bool {
 }
 
 func CheckConfig(m map[string]string) {
-
 	if m == nil {
 		log.Fatal("Archivo de configuración de entorno inválido")
 	}
@@ -124,7 +128,6 @@ func CheckConfig(m map[string]string) {
 	if !FileExists(v) {
 		log.Fatal("El archivo configurado en el parámetro FILE_SUPER_CAFFE no existe")
 	}
-
 }
 
 func IsVehicle(qr string) bool {
@@ -152,4 +155,48 @@ func LogError(text string, err error, modeDebug bool) {
 	if modeDebug {
 		log.Printf("DEBUG: %s\n", err.Error())
 	}
+}
+
+func SaveJPG(imgByte []byte, filename string) error {
+	img, _, err := image.Decode(bytes.NewReader(imgByte))
+	if err != nil {
+		return err
+	}
+
+	out, _ := os.Create(filename)
+	defer out.Close()
+
+	err = jpeg.Encode(out, img, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateImage(width int, height int, background color.RGBA) *image.RGBA {
+	rect := image.Rect(0, 0, width, height)
+	img := image.NewRGBA(rect)
+	draw.Draw(img, img.Bounds(), &image.Uniform{background}, image.ZP, draw.Src)
+	return img
+}
+
+func GetCardColor(code string) string {
+	switch code {
+	case "VE":
+		return "VERDE"
+	case "NA":
+		return "NARANJA"
+	case "AM":
+		return "AMARILLO"
+	}
+	return "DESCONOCIDO"
+}
+
+func CheckFileExists(fname string) bool {
+	info, err := os.Stat(fname)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }

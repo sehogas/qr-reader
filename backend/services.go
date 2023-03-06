@@ -70,7 +70,7 @@ func GetPhotoVehicle(url_backend, apiKey, filename string) ([]byte, error) {
 
 func SendToServerBulk(url_backend string, apiKey string, accessBulk models.AccessBulk) error {
 
-	client := &http.Client{Timeout: time.Second * 15}
+	client := &http.Client{Timeout: time.Second * 30}
 
 	bodyReq, err := json.Marshal(accessBulk)
 	if err != nil {
@@ -100,7 +100,7 @@ func SendToServerBulk(url_backend string, apiKey string, accessBulk models.Acces
 func SendToServer(url_backend string, apiKey string, access models.Access) (models.AccessDataResponse, error) {
 	var accessData models.AccessDataResponse
 
-	client := &http.Client{Timeout: time.Second * 15}
+	client := &http.Client{Timeout: time.Second * 10}
 
 	bodyReq, err := json.Marshal(access)
 	if err != nil {
@@ -147,7 +147,7 @@ func GetCardsFromServer(url_backend string, apiKey string, fecDesde time.Time, a
 		iAnulados = 0
 	}
 
-	client := &http.Client{Timeout: time.Second * 15}
+	client := &http.Client{Timeout: time.Second * 20}
 
 	req := fmt.Sprintf("%s/terminal/qrs/%s/%d", url_backend, fecDesde.Format("20060102150405"), iAnulados)
 	request, err := http.NewRequest(http.MethodGet, req, nil)

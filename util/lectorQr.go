@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"log"
@@ -10,8 +9,6 @@ import (
 	"time"
 
 	"image/color"
-	"image/draw"
-	"image/jpeg"
 
 	"github.com/sehogas/qr-reader/backend"
 	"github.com/sehogas/qr-reader/models"
@@ -44,7 +41,7 @@ type LectorQR struct {
 	FileWavGranted     string
 	FileWavDenied      string
 	APIKey             string
-	DebugMode          bool
+	DebugMode          *bool
 	FileDetectProtoTxt string
 	FileDetectCaffe    string
 	FileSuperProtoTxt  string
@@ -68,8 +65,7 @@ var QRPrev2 string
 var QR1 string
 var QR2 string
 
-// func NewLectorQR(deviceID int, fromFile string, repo *Repository, mode int, clientID, zone, event, pathWavGranted, pathWavDenied string) *LectorQR {
-func NewLectorQR(cfg map[string]string, repo *Repository, tmpDir string) *LectorQR {
+func NewLectorQR(cfg map[string]string, repo *Repository, tmpDir string, debugMode *bool) *LectorQR {
 	deviceID, _ := strconv.Atoi(cfg["DEVICE_ID"])
 	mode, _ := strconv.Atoi(cfg["MODE"])
 
@@ -92,7 +88,7 @@ func NewLectorQR(cfg map[string]string, repo *Repository, tmpDir string) *Lector
 		FileWavGranted:     cfg["FILE_WAV_GRANTED"],
 		FileWavDenied:      cfg["FILE_WAV_DENIED"],
 		APIKey:             cfg["API_KEY"],
-		DebugMode:          false,
+		DebugMode:          debugMode,
 		FileDetectProtoTxt: cfg["FILE_DETECT_PROTO_TXT"],
 		FileDetectCaffe:    cfg["FILE_DETECT_CAFFE"],
 		FileSuperProtoTxt:  cfg["FILE_SUPER_PROTO_TXT"],
@@ -140,23 +136,23 @@ func (s *LectorQR) Start() {
 	s.Width = frame.Cols()
 	s.Height = frame.Rows()
 
-	log.Printf("Dimensiones del video: %d x %d\n", s.Width, s.Height)
+	log.Printf("Resolución video: %d x %d\n", s.Width, s.Height)
 
-	black, err := gocv.ImageToMatRGB(createImage(s.Width, s.Height, color.RGBA{0, 0, 0, 0}))
+	black, err := gocv.ImageToMatRGB(CreateImage(s.Width, s.Height, color.RGBA{0, 0, 0, 0}))
 	if err != nil {
 		log.Println("*** Error generando background black ***")
 		return
 	}
 	defer black.Close()
 
-	green, err := gocv.ImageToMatRGB(createImage(s.Width, s.Height, color.RGBA{0, 255, 0, 0}))
+	green, err := gocv.ImageToMatRGB(CreateImage(s.Width, s.Height, color.RGBA{0, 255, 0, 0}))
 	if err != nil {
 		log.Println("*** Error generando background green ***")
 		return
 	}
 	defer green.Close()
 
-	red, err := gocv.ImageToMatRGB(createImage(s.Width, s.Height, color.RGBA{255, 0, 0, 0}))
+	red, err := gocv.ImageToMatRGB(CreateImage(s.Width, s.Height, color.RGBA{255, 0, 0, 0}))
 	if err != nil {
 		log.Println("*** Error generando background green ***")
 		return
@@ -214,11 +210,9 @@ func (s *LectorQR) Start() {
 	defer photo2.Close()
 
 	wait := 1
-
 	detector := contrib.NewWeChatQRCode(s.FileDetectProtoTxt, s.FileDetectCaffe, s.FileSuperProtoTxt, s.FileSuperCaffe)
 
 	log.Println("Leyendo cámara...")
-
 	for {
 		if !camera.Read(&frame) {
 			log.Println("*** No se pudo leer la cámara ***")
@@ -257,7 +251,9 @@ func (s *LectorQR) Start() {
 
 				switch status {
 				case _ACCESS_GRANTED:
-					log.Printf("### ACCESO PERMITIDO ###\n")
+					if *s.DebugMode {
+						log.Printf("### ACCESO PERMITIDO ###\n")
+					}
 
 					existPhoto1 = s.GetPhotoPerson(code1, &photo1)
 					if code2 != "" {
@@ -268,22 +264,39 @@ func (s *LectorQR) Start() {
 					if existPhoto1 {
 						photo1.CopyTo(&s.quad1)
 					} else {
-						green.CopyTo(&s.quad1)
+						black.CopyTo(&s.quad1)
 					}
+
 					if existPhoto2 {
 						photo2.CopyTo(&s.quad2)
 					} else {
 						black.CopyTo(&s.quad2)
 					}
+
 					wavGranted.Play()
 					//wait = 2000
 
 				case _ACCESS_DENIED:
-					log.Printf("### ACCESO DENEGADO ###\n")
+					if *s.DebugMode {
+						log.Printf("### ACCESO DENEGADO ###\n")
+					}
 
 					existPhoto1 = s.GetPhotoPerson(code1, &photo1)
 					if code2 != "" {
 						existPhoto2 = s.GetPhotoVehicle(code2, &photo2)
+					}
+
+					if decoded2 != "" {
+						fmt.Printf("%s | %-6s | %-25s | %-23s | * ACCESO DENEGADO *\n",
+							time.Now().Format("02/01/2006 15:04:05"),
+							s.EventName,
+							decoded[len(decoded)-12:],
+							decoded2[len(decoded2)-12:])
+					} else {
+						fmt.Printf("%s | %-6s | %-51s | * ACCESO DENEGADO *\n",
+							time.Now().Format("02/01/2006 15:04:05"),
+							s.EventName,
+							decoded)
 					}
 
 					red.CopyTo(&s.quad3)
@@ -294,13 +307,14 @@ func (s *LectorQR) Start() {
 					if existPhoto1 {
 						photo1.CopyTo(&s.quad1)
 					} else {
-						red.CopyTo(&s.quad1)
+						black.CopyTo(&s.quad1)
 					}
 					if existPhoto2 {
 						photo2.CopyTo(&s.quad2)
 					} else {
 						black.CopyTo(&s.quad2)
 					}
+
 					wavDenied.Play()
 					//wait = 2000
 
@@ -316,9 +330,11 @@ func (s *LectorQR) Start() {
 		}
 
 		window.IMShow(*s.GetFrame())
+
 		if status == _ACCESS_GRANTED {
 			s.SaveAccessGranted(code1, code2)
 			status = _CONTINUE
+
 		}
 		code1 = ""
 		code2 = ""
@@ -333,13 +349,9 @@ func (s *LectorQR) Start() {
 		keyPrev = key
 		switch key {
 		case 100:
-			//DebugMode
-			s.DebugMode = !s.DebugMode
-			log.Printf("DEBUG MODE: %v\n", s.DebugMode)
+			*s.DebugMode = !*s.DebugMode
+			log.Printf("MODO DEBUG: %v\n", *s.DebugMode)
 		}
-		// if key != -1 {
-		// 	fmt.Println(key)
-		// }
 
 		wait = 1
 	}
@@ -353,46 +365,6 @@ func (s *LectorQR) GetFrame() *gocv.Mat {
 	gocv.Resize(s.quadTmp, &s.frameResize, image.Pt(s.Width, s.Height), 0, 0, gocv.InterpolationArea)
 	return &s.frameResize
 }
-
-// func (s *LectorQR) GenPictureInfo(background, img1, img2 *gocv.Mat) (*gocv.Mat, error) {
-// 	if background == nil {
-// 		return nil, fmt.Errorf("no se puede generar la imagen de información porque falta el background")
-// 	}
-// 	if img1 == nil {
-// 		return background, nil
-// 	}
-
-// 	if background.Cols() != img1.Cols() || background.Rows() != img1.Rows() || background.Channels() != img1.Channels() {
-// 		return nil, fmt.Errorf("no se puede generar la imagen de información porque las características de las imágenes son distintas - background/img1")
-// 	}
-// 	if img2 != nil {
-// 		if img1.Cols() != img2.Cols() || img1.Rows() != img2.Rows() || img1.Channels() != img2.Channels() {
-// 			return nil, fmt.Errorf("no se puede generar la imagen de información porque las características de las imágenes son distintas - img1/img2")
-// 		}
-// 	}
-
-// 	arriba := gocv.NewMat()
-// 	abajo := gocv.NewMat()
-// 	total := gocv.NewMat()
-// 	//resize := gocv.NewMat()
-// 	if img2 != nil {
-// 		gocv.Hconcat(*img1, *img2, &arriba)
-// 	} else {
-// 		gocv.Hconcat(*img1, *background, &arriba)
-// 	}
-// 	gocv.Hconcat(*background, *background, &abajo)
-// 	s.PutTitle(&abajo, "ACCESO PERMITIDO", 1)
-// 	s.PutText(&abajo, "", 2)
-// 	s.PutText(&abajo, "ENTRADA: 04/03/2023 15:45:20", 3)
-// 	s.PutText(&abajo, "DNI 24957207", 4)
-// 	s.PutText(&abajo, "HOGAS ANGEL SEBASTIAN", 5)
-// 	s.PutText(&abajo, "DIRECCION PROVINCIAL DE PUERTOS", 6)
-// 	gocv.Vconcat(arriba, abajo, &total)
-// 	//gocv.Resize(total, &resize, image.Pt(640, 480), 0, 0, gocv.InterpolationArea)
-// 	//gocv.AddWeighted(resize, 1, green, 1, 1, &dst)
-
-// 	return &total, nil
-// }
 
 func (s *LectorQR) PutTitle(background *gocv.Mat, text string, linea int) *gocv.Mat {
 	gocv.PutText(background, text, image.Point{10, 50 * linea}, gocv.FontHersheyTriplex, 1.1, color.RGBA{0, 0, 0, 0}, 2)
@@ -417,35 +389,41 @@ func (s *LectorQR) PutTextWithColor(background *gocv.Mat, text string, linea int
 func (s *LectorQR) GetPhotoPerson(code string, photo *gocv.Mat) bool {
 	card, err := s.Repo.InfoCard(code)
 	if err != nil {
-		log.Println("Error obteniendo información de la tarjeta")
+		if *s.DebugMode {
+			log.Println("Error obteniendo información de la tarjeta")
+		}
 		return false
 	}
+
 	if card.Photo == "" {
-		log.Println("No existe información de la tarjeta")
+		if *s.DebugMode {
+			log.Println("No existe información de la tarjeta de la persona")
+		}
 		return false
 	}
 	f := fmt.Sprintf("%s\\%s", s.TmpDir, card.Photo)
-	_, err = os.Stat(f)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File or directory does not exist
-			bytes, err := backend.GetPhotoPerson(s.UrlBackend, s.APIKey, card.Photo)
-			if err != nil {
+	if !CheckFileExists(f) {
+		bytes, err := backend.GetPhotoPerson(s.UrlBackend, s.APIKey, card.Photo)
+		if err != nil {
+			if *s.DebugMode {
 				log.Println("Error obteniendo foto del servidor. ", err)
-				return false
 			}
-			err = saveJPG(bytes, f)
-			if err != nil {
+			return false
+		}
+		err = SaveJPG(bytes, f)
+		if err != nil {
+			if *s.DebugMode {
 				log.Println("Error grabando foto local. ", err)
-				return false
 			}
-		} else {
-			log.Println(err)
 			return false
 		}
 	}
+
 	photoTmp := gocv.IMRead(f, gocv.IMReadColor)
 	defer photoTmp.Close()
+	if photoTmp.Cols() != s.Width || photoTmp.Rows() != s.Height {
+		gocv.Resize(photoTmp, &photoTmp, image.Pt(s.Width, s.Height), 0, 0, gocv.InterpolationArea)
+	}
 	photoTmp.CopyTo(photo)
 	return !photoTmp.Empty()
 }
@@ -453,31 +431,47 @@ func (s *LectorQR) GetPhotoPerson(code string, photo *gocv.Mat) bool {
 func (s *LectorQR) GetPhotoVehicle(code string, photo *gocv.Mat) bool {
 	card, err := s.Repo.InfoCard(code)
 	if err != nil {
-		log.Println("Error obteniendo información de la tarjeta")
+		if *s.DebugMode {
+			log.Println("Error obteniendo información de la tarjeta")
+		}
+		return false
+	}
+	if card.Photo == "" {
+		if *s.DebugMode {
+			log.Println("No existe información de la tarjeta del vehículo")
+		}
 		return false
 	}
 	f := fmt.Sprintf("%s\\%s", s.TmpDir, card.Photo)
-	_, err = os.Stat(f)
-	if err != nil {
+	if !CheckFileExists(f) {
 		if os.IsNotExist(err) {
 			// File or directory does not exist
 			bytes, err := backend.GetPhotoVehicle(s.UrlBackend, s.APIKey, card.Photo)
 			if err != nil {
-				log.Println("Error obteniendo foto del servidor. ", err)
+				if *s.DebugMode {
+					log.Println("Error obteniendo foto del servidor. ", err)
+				}
 				return false
 			}
-			err = saveJPG(bytes, f)
+			err = SaveJPG(bytes, f)
 			if err != nil {
-				log.Println("Error grabando foto local. ", err)
+				if *s.DebugMode {
+					log.Println("Error grabando foto local. ", err)
+				}
 				return false
 			}
 		} else {
-			log.Println(err)
+			if *s.DebugMode {
+				log.Println(err)
+			}
 			return false
 		}
 	}
 	photoTmp := gocv.IMRead(f, gocv.IMReadColor)
 	defer photoTmp.Close()
+	if photoTmp.Cols() != s.Width || photoTmp.Rows() != s.Height {
+		gocv.Resize(photoTmp, &photoTmp, image.Pt(s.Width, s.Height), 0, 0, gocv.InterpolationArea)
+	}
 	photoTmp.CopyTo(photo)
 	return !photoTmp.Empty()
 }
@@ -493,18 +487,56 @@ func (s *LectorQR) SaveAccessGranted(code1, code2 string) {
 		Event:      s.EventCode,
 	}
 
+	if *s.DebugMode {
+		log.Printf("access request: %v\n", access)
+	}
+
 	go func(url_backend, APIKey string, access *models.Access) {
+
 		dataAccess, err := backend.SendToServer(url_backend, s.APIKey, *access)
 		if err != nil {
-			LogError("*** Error enviando movimiento al servidor ***", err, s.DebugMode)
-
+			if *s.DebugMode {
+				LogError("*** Error enviando movimiento al servidor ***", err, *s.DebugMode)
+			}
 			err := s.Repo.InsertAccess(access)
 			if err != nil {
-				LogError("Amacenamiento local: ERROR", err, s.DebugMode)
+				LogError("Amacenamiento local: ERROR", err, *s.DebugMode)
+			} else {
+				if *s.DebugMode {
+					log.Println("Almacenamiento en local: OK")
+				}
+
+				if code2 != "" {
+					fmt.Printf("%s | %-6s | %-25s | %-23s | * SINCRONIZACION PENDIENTE *\n",
+						time.Now().Format("02/01/2006 15:04:05"),
+						s.EventName,
+						code1[len(code1)-12:],
+						code2[len(code2)-12:])
+				} else {
+					fmt.Printf("%s | %-6s | %-51s | * SINCRONIZACION PENDIENTE *\n",
+						time.Now().Format("02/01/2006 15:04:05"),
+						s.EventName,
+						code1)
+				}
+
+				s.PutTitle(&s.quad3, "ACCESO PERMITIDO", 1)
+				s.PutText(&s.quad3, "", 2)
+				s.PutText(&s.quad3, fmt.Sprintf("%s: %s", s.EventName, access.AccessDate.Format("02/01/2006 15:04:05")), 3)
 			}
-			log.Println("Almacenamiento en local: OK")
+
 		} else {
-			backend.PrintData(dataAccess)
+			if *s.DebugMode {
+				backend.PrintData(dataAccess)
+			}
+			fmt.Printf("%s | %-6s | %-25s | %s %s | %-8s | %s\n",
+				access.AccessDate.Format("02/01/2006 15:04:05"),
+				s.EventName,
+				dataAccess.PersonName,
+				dataAccess.DocumentType,
+				dataAccess.DocumentNumber,
+				GetCardColor(dataAccess.Color),
+				dataAccess.LicensePlate)
+
 			s.PutTitle(&s.quad3, "ACCESO PERMITIDO", 1)
 			s.PutText(&s.quad3, "", 2)
 			s.PutText(&s.quad3, fmt.Sprintf("%s: %s", s.EventName, access.AccessDate.Format("02/01/2006 15:04:05")), 3)
@@ -517,10 +549,10 @@ func (s *LectorQR) SaveAccessGranted(code1, code2 string) {
 				s.PutText(&s.quad3, fmt.Sprintf("PERMANENTE - PNA: %s", dataAccess.PNA), 7)
 			}
 			s.PutText(&s.quad3, fmt.Sprintf("VIGENCIA: %s %s", dataAccess.DateFrom.Format("02/01/2006"), dataAccess.DateTo.Format("02/01/2006")), 8)
+			s.PutText(&s.quad3, fmt.Sprintf("COLOR TARJ. PERSONA: %s", GetCardColor(dataAccess.Color)), 9)
 			if dataAccess.LicensePlate != "" {
-				s.PutText(&s.quad3, fmt.Sprintf("VEHICULO: %s", dataAccess.LicensePlate), 9)
+				s.PutText(&s.quad3, fmt.Sprintf("VEHICULO: %s", dataAccess.LicensePlate), 11)
 			}
-			s.PutText(&s.quad3, fmt.Sprintf("COLOR TARJETA: %s", dataAccess.Color), 10)
 		}
 	}(s.UrlBackend, s.APIKey, &access)
 }
@@ -530,7 +562,9 @@ func (s *LectorQR) AccessGranted2(decoded *string, decoded2 *string) (status, co
 	if s.Mode == 1 { //Only person
 		if *decoded != QRPrev1 && IsPerson(*decoded) {
 			QRPrev1 = *decoded
-			log.Printf("QR [%s] es %s\n", *decoded, PersonOrVehicle(*decoded))
+			if *s.DebugMode {
+				log.Printf("QR [%s] es %s\n", *decoded, PersonOrVehicle(*decoded))
+			}
 			if Ok, _ := s.Repo.ValidCard(QRPrev1); Ok {
 				return _ACCESS_GRANTED, QRPrev1, ""
 			} else {
@@ -548,7 +582,10 @@ func (s *LectorQR) AccessGranted2(decoded *string, decoded2 *string) (status, co
 		QRPrev1 = *decoded
 		QRPrev2 = *decoded2
 
-		log.Printf("QR1 [%s] es %s, QR2 [%s] es %s\n", *decoded, PersonOrVehicle(*decoded), *decoded2, PersonOrVehicle(*decoded2))
+		if *s.DebugMode {
+			log.Printf("QR1 [%s] es %s, QR2 [%s] es %s\n", *decoded, PersonOrVehicle(*decoded), *decoded2, PersonOrVehicle(*decoded2))
+		}
+
 		if (PersonOrVehicle(*decoded) == _PERSON && PersonOrVehicle(*decoded2) == _VEHICLE) || (PersonOrVehicle(*decoded) == _VEHICLE && PersonOrVehicle(*decoded2) == _PERSON) {
 			accessGranted, _ := s.Repo.ValidCard(*decoded)
 			if accessGranted {
@@ -578,29 +615,4 @@ func (s *LectorQR) AccessGranted2(decoded *string, decoded2 *string) (status, co
 	}
 	log.Println("Modo inválido!")
 	return _ERROR, "", ""
-}
-
-func saveJPG(imgByte []byte, filename string) error {
-
-	img, _, err := image.Decode(bytes.NewReader(imgByte))
-	if err != nil {
-		return err
-	}
-
-	out, _ := os.Create(filename)
-	defer out.Close()
-
-	err = jpeg.Encode(out, img, nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func createImage(width int, height int, background color.RGBA) *image.RGBA {
-	rect := image.Rect(0, 0, width, height)
-	img := image.NewRGBA(rect)
-	draw.Draw(img, img.Bounds(), &image.Uniform{background}, image.ZP, draw.Src)
-	return img
 }

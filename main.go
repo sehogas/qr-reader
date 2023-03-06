@@ -16,6 +16,7 @@ import (
 
 var ticker *time.Ticker
 var done chan bool
+var debugMode bool
 
 func main() {
 
@@ -97,7 +98,7 @@ func main() {
 		done = make(chan bool)
 		go inBackground(cfg, repo, fnSync)
 
-		lectorQR := util.NewLectorQR(cfg, repo, tmpDir)
+		lectorQR := util.NewLectorQR(cfg, repo, tmpDir, &debugMode)
 		lectorQR.Start()
 
 		ticker.Stop()
@@ -128,12 +129,16 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	cards, syncTime, err := backend.GetCardsFromServer(cfg["URL_BACKEND"], cfg["API_KEY"], repo.Config.LastUpdateCards, consultarAnulados)
 	if err != nil {
-		log.Println("*** Error consultando servidor para sincronizar tarjetas ***")
+		if debugMode {
+			log.Println("*** Error consultando servidor para sincronizar tarjetas ***")
+		}
 		status = "ERROR"
 	} else {
 		err = repo.SyncCards(cards, syncTime)
 		if err != nil {
-			log.Println("*** Error actualización tarjetas locales ***")
+			if debugMode {
+				log.Println("*** Error actualización tarjetas locales ***")
+			}
 			status = "ERROR"
 		}
 	}
@@ -141,7 +146,9 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 	tSync := time.Now()
 	access, err := repo.GetAccessToSync(tSync)
 	if err != nil {
-		log.Println("*** Error consultando movimientos para enviar al servidor ***")
+		if debugMode {
+			log.Println("*** Error consultando movimientos para enviar al servidor ***")
+		}
 		status = "ERROR"
 	} else {
 		totalAccessSync = len(access)
@@ -152,12 +159,16 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 			if err != nil {
 				bOk = false
 				totalAccessSync = 0
-				log.Println("*** Error enviando pendientes al servidor ***")
+				if debugMode {
+					log.Println("*** Error enviando pendientes al servidor ***")
+				}
 				status = "ERROR"
 			}
 			err = repo.SyncAccessUpdateDelete(tSync, bOk)
 			if err != nil {
-				log.Println("*** Error actualizando pendientes locales ***")
+				if debugMode {
+					log.Println("*** Error actualizando pendientes locales ***")
+				}
 				status = "ERROR"
 			}
 		}
@@ -165,16 +176,22 @@ func fnSync(t time.Time, cfg map[string]string, repo *util.Repository) {
 
 	totalCards, err := repo.TotalCards()
 	if err != nil {
-		log.Println("*** Error consultando total de tarjetas locales ***")
+		if debugMode {
+			log.Println("*** Error consultando total de tarjetas locales ***")
+		}
 		status = "ERROR"
 	}
 
 	TotalEarrings, err := repo.TotalEarrings()
 	if err != nil {
-		log.Println("*** Error consultando total de pendientes locales ***")
+		if debugMode {
+			log.Println("*** Error consultando total de pendientes locales ***")
+		}
 		status = "ERROR"
 	}
 
-	log.Printf("Sincronización %s:  [Total tarjetas: %d], [Total recibido: %d], [Total a enviado: %d], [Total pendientes: %d], [Fecha del servidor: %s]\n",
-		status, totalCards, len(cards), totalAccessSync, TotalEarrings, syncTime.Format("2006-01-02 15:04:05"))
+	if debugMode {
+		log.Printf("Sincronización %s:  [Total tarjetas: %d], [Total recibido: %d], [Total enviado: %d], [Total pendientes: %d], [Fecha del servidor: %s]\n",
+			status, totalCards, len(cards), totalAccessSync, TotalEarrings, syncTime.Format("2006-01-02 15:04:05"))
+	}
 }

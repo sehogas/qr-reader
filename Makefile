@@ -11,52 +11,53 @@ GOOS=windows
 GOARCH=amd64
 NETWORK=sigep-network
 FLAGS='-s -w'
+QR_READER_KEY=my32digitkey12345678901234567890
 ########################################################
 
 run: cam1
 
 cam1:
-	go run main.go run --file cam1_aq_i_x1.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam1_aq_i_x1.env.encrypted
 
 cam2:
-	go run main.go run --file cam2_aq_s_x1.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam2_aq_s_x1.env.encrypted
 
 cam3:
-	go run main.go run --file cam3_ap_i_x1.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam3_ap_i_x1.env.encrypted
 
 cam4:
-	go run main.go run --file cam4_aq_i_x2.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam4_aq_i_x2.env.encrypted
 
 cam5:
-	go run main.go run --file hikvision.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file hikvision.env.encrypted
 
 cam6:
-	go run main.go run --file cam6_aq_i_x2.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam6_aq_i_x2.env.encrypted
 
 cam7:
-	go run main.go run --file cam7_os_i_x1.env.encrypted
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go run --file cam7_os_i_x1.env.encrypted
 
 
 encrypt1:
-	go run main.go encrypt --file cam1_aq_i_x1.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam1_aq_i_x1.env
 
 encrypt2:
-	go run main.go encrypt --file cam2_aq_s_x1.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam2_aq_s_x1.env
 
 encrypt3: 
-	go run main.go encrypt --file cam3_ap_i_x1.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam3_ap_i_x1.env
 
 encrypt4: 
-	go run main.go encrypt --file cam4_aq_i_x2.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam4_aq_i_x2.env
 
 encrypt5: 
-	go run main.go encrypt --file hikvision.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file hikvision.env
 
 encrypt6: 
-	go run main.go encrypt --file cam6_aq_i_x2.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam6_aq_i_x2.env
 
 encrypt7: 
-	go run main.go encrypt --file cam7_os_i_x1.env
+	QR_READER_KEY=$(QR_READER_KEY) go run main.go encrypt --file cam7_os_i_x1.env
 
 bin:
 	@echo Generando binario... 
@@ -121,7 +122,6 @@ createnetwork:
 #	scp backdesa_sigep shogas@192.168.3.7:/home/shogas/go/bin
 
 clean:
-	@echo Borrando binario ...
 	rm -rf $(TARGET)
 
 cleanW:
